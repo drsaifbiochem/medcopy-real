@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Lightbulb, HeartPulse, Brain, Award, Rocket, Cpu, Building2, ChevronDown, Check } from 'lucide-react';
+import { User, Lightbulb, HeartPulse, Brain, Award, Rocket, Cpu, Building2, ChevronDown, Check, Sparkles } from 'lucide-react';
 import { Preset } from '../types';
 
 interface PresetSelectorProps {
@@ -150,7 +150,7 @@ export const PresetSelector: React.FC<PresetSelectorProps> = ({ onSelect, select
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getIcon = (id: string, className = "w-4 h-4") => {
+  const getIcon = (id: string, className = "w-5 h-5") => {
     switch (id) {
       case 'psychiatrist': return <Brain className={className} />;
       case 'biochem_mentor': return <Award className={className} />;
@@ -164,62 +164,66 @@ export const PresetSelector: React.FC<PresetSelectorProps> = ({ onSelect, select
   };
 
   return (
-    <div className="relative mb-6" ref={dropdownRef}>
-        <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="w-full flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:border-teal-500 dark:hover:border-teal-500 transition-colors text-left group"
-        >
-            <div className="flex items-center gap-3 overflow-hidden">
-                 <div className={`p-1.5 rounded-md shrink-0 transition-colors ${selectedId ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400'}`}>
-                    {selectedPreset ? getIcon(selectedPreset.id) : <User className="w-4 h-4"/>}
-                 </div>
-                 <div className="truncate">
-                    <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                        {selectedPreset ? selectedPreset.name : "Select a Persona..."}
-                    </span>
-                    {selectedPreset && (
-                         <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
-                            {selectedPreset.description}
-                         </span>
-                    )}
-                 </div>
-            </div>
-            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
-        </button>
+    <div className="relative mb-6 z-20" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between p-4 rounded-xl shadow-sm border transition-all duration-300 group
+                ${selectedId
+            ? 'bg-teal-50/50 dark:bg-teal-900/10 border-teal-200 dark:border-teal-800 ring-1 ring-teal-100 dark:ring-teal-900'
+            : 'bg-white dark:bg-slate-950/50 border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-700'
+          }
+            `}
+      >
+        <div className="flex items-center gap-4 overflow-hidden">
+          <div className={`p-2.5 rounded-lg shrink-0 transition-all duration-300 shadow-sm ${selectedId ? 'bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-teal-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'}`}>
+            {selectedPreset ? getIcon(selectedPreset.id) : <Sparkles className="w-5 h-5" />}
+          </div>
+          <div className="text-left truncate">
+            <span className={`block text-sm font-bold truncate transition-colors ${selectedId ? 'text-teal-900 dark:text-teal-100' : 'text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white'}`}>
+              {selectedPreset ? selectedPreset.name : "Choose AI Persona..."}
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 truncate block mt-0.5 font-medium">
+              {selectedPreset ? selectedPreset.description : "Select the expert voice for your content."}
+            </span>
+          </div>
+        </div>
+        <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 shrink-0 ${isOpen ? 'rotate-180 text-teal-500' : ''}`} />
+      </button>
 
-        {isOpen && (
-            <div className="absolute z-50 mt-2 w-full bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                {PRESETS.map((preset) => (
-                    <button
-                        key={preset.id}
-                        onClick={() => {
-                            onSelect(preset);
-                            setIsOpen(false);
-                        }}
-                        className={`w-full flex items-start p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700/50 last:border-0 ${selectedId === preset.id ? 'bg-teal-50/50 dark:bg-teal-900/10' : ''}`}
-                    >
-                         <div className={`mt-0.5 mr-3 p-1.5 rounded-md shrink-0 ${
-                            selectedId === preset.id 
-                            ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300' 
-                            : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
-                        }`}>
-                            {getIcon(preset.id)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center">
-                                <span className={`text-sm font-semibold truncate ${selectedId === preset.id ? 'text-teal-700 dark:text-teal-300' : 'text-slate-900 dark:text-slate-200'}`}>
-                                    {preset.name}
-                                </span>
-                                {selectedId === preset.id && <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />}
-                            </div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
-                                {preset.description}
-                            </p>
-                        </div>
-                    </button>
-                ))}
-            </div>
-        )}
+      {isOpen && (
+        <div className="absolute top-full left-0 z-50 mt-2 w-full bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[400px] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
+          <div className="p-2 space-y-1">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => {
+                  onSelect(preset);
+                  setIsOpen(false);
+                }}
+                className={`w-full flex items-start p-3 text-left rounded-lg transition-all group ${selectedId === preset.id ? 'bg-teal-50 dark:bg-teal-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+              >
+                <div className={`mt-0.5 mr-3 p-2 rounded-lg shrink-0 transition-colors ${selectedId === preset.id
+                    ? 'bg-teal-100 dark:bg-teal-900 text-teal-600 dark:text-teal-400'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:bg-white dark:group-hover:bg-black/20 group-hover:text-teal-500 dark:group-hover:text-teal-400'
+                  }`}>
+                  {getIcon(preset.id)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-0.5">
+                    <span className={`text-sm font-bold truncate ${selectedId === preset.id ? 'text-teal-700 dark:text-teal-200' : 'text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white'}`}>
+                      {preset.name}
+                    </span>
+                    {selectedId === preset.id && <Check className="w-4 h-4 text-teal-600 dark:text-teal-400" />}
+                  </div>
+                  <p className={`text-xs leading-snug transition-colors ${selectedId === preset.id ? 'text-teal-600/80 dark:text-teal-400/70' : 'text-slate-500 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400'}`}>
+                    {preset.description}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

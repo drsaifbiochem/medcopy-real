@@ -30,6 +30,11 @@
 - **Config Loading**: Automatically loads Sheet ID and Client ID from `.env` file
 - **Debug Logging**: Console logs show auto-save trigger conditions
 
+### 5. Vision Feature & UI Overhaul (2026-02-18)
+- **Added**: Vision Mode for analyzing medical images using `gemma-3-27b-it`.
+- **UI**: Complete Glassmorphism redesign (Header, PresetSelector, Cards).
+- **Docs**: Added `VISION.md` for detailed vision system documentation.
+
 ---
 
 ## Table of Contents
@@ -44,6 +49,7 @@
 8. [API Routes & Security](#8-api-routes--security)
 9. [Payment & Cost Settings](#9-payment--cost-settings)
 10. [Quick Tweaks Checklist](#10-quick-tweaks-checklist)
+11. [Vision & Multimodal Features](#11-vision--multimodal-features)
 
 ---
 
@@ -785,6 +791,29 @@ For detailed setup instructions, see:
 - `README.md` - General overview
 - `GOOGLE_SHEETS_INTEGRATION.md` - Sheets integration guide
 - `.env.example` - Environment variable documentation
+
+---
+
+
+---
+
+## 11. Vision & Multimodal Features
+
+> **See `VISION.md` for full details.**
+
+### Enabling Vision Mode
+**File:** `App.tsx` (Line ~580)
+- **Toggle**: Mutually exclusive with Batch, Carousel, and Summarizer modes.
+- **Model**: `gemma-3-27b-it` (hardcoded for vision tasks).
+
+### Components
+- **Image Upload**: Drag-and-drop zone using standard `<input type="file">`.
+- **Preview**: Displays selected image with a "Clear" button.
+- **Prompt Injection**: Appends image data as `inlineData` to the model prompt.
+
+### Quick Tweaks
+- **Change Model**: Update `geminiService.ts` (Search for `gemma-3-27b-it`).
+- **Max Image Size**: Currently limited by browser memory and API payload limits (~4MB safe zone).
 
 ---
 

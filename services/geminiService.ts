@@ -36,7 +36,7 @@ function loadAvailableKeys(): APIKey[] {
   return keys;
 }
 
-// Detect if error is a quota/rate limit error
+// Detect if error is a quota/rate limit error or a transient server error (503)
 function isQuotaError(error: any): boolean {
   const errorStr = JSON.stringify(error).toLowerCase();
   return (
@@ -45,7 +45,11 @@ function isQuotaError(error: any): boolean {
     errorStr.includes('rate_limit') ||
     errorStr.includes('resource exhausted') ||
     errorStr.includes('429') ||
-    (error.status && error.status === 429)
+    errorStr.includes('503') ||
+    errorStr.includes('deadline exceeded') ||
+    errorStr.includes('unavailable') ||
+    (error.status && error.status === 429) ||
+    (error.status && error.status === 503)
   );
 }
 
@@ -207,6 +211,59 @@ FOLLOW THIS WRITING STYLE:
       try {
         let currentTopic = inputs.topic;
         let distilledInsightStr: string | undefined;
+
+        // Step -1: Handling "Vision Mode" (Image Analysis)
+        if (inputs.imageMode && inputs.image) {
+          const visionPrompt = `
+━━━━━━━━━━━━━━━━━━
+VISION ANALYSIS MODE
+━━━━━━━━━━━━━━━━━━
+You are an expert medical image analyst acting as the Persona defined below.
+Your task is to analyze the provided image and generate a professional, medically accurate report or description.
+
+INPUTS:
+PERSONA: ${inputs.persona}
+TOPIC/QUESTION: ${currentTopic || "Analyze this image."}
+CONTEXT: ${inputs.context || "No specific context."}
+AUDIENCE: ${inputs.audience}
+
+INSTRUCTIONS:
+1. Identify the key anatomical structures, findings, or data presented in the image.
+2. If it's a chart or graph, summarize the key trends.
+3. If it's a clinical image, describe observations using standard medical terminology appropriate for the audience.
+4. Apply the tone and style of the Persona.
+5. Adhere to the safety guardrails for the specific Audience.
+
+${antiAiStyleInstruction}
+${citationInstruction}
+`;
+
+          // Extract Base64 and MimeType
+          const match = inputs.image.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+          const mimeType = match ? match[1] : 'image/jpeg';
+          const base64Data = match ? match[2] : inputs.image;
+
+          // Gemma-3 Vision (User enforced: ONLY Gemma 3)
+          const response = await ai.models.generateContent({
+            model: 'gemma-3-27b-it',
+            contents: [
+              {
+                role: 'user', parts: [
+                  { text: `${SYSTEM_INSTRUCTION}\n\n${visionPrompt}` },
+                  { inlineData: { mimeType: mimeType, data: base64Data } }
+                ]
+              }
+            ],
+            config: { temperature: 0.5 },
+          }, { timeout: 300000 }); // 300s timeout
+
+          return {
+            content: response.text || "No analysis generated.",
+            distilledInsight: distilledInsightStr,
+            driftScore: 100,
+            driftReasoning: "Vision analysis via Gemma-3-27b-it."
+          };
+        }
 
         // Step 0: Thought Distillation (Optional)
         if (inputs.enableDistillation) {
@@ -664,9 +721,11 @@ Return your response in this JSON format:
       // Outer try-catch for key rotation
       lastError = error;
 
-      // Check if this is a quota error
+      // Check if this is a quota error or transient 503
       if (isQuotaError(error)) {
-        console.warn(`[API Key Rotation] Quota exceeded for ${currentKey.provider.toUpperCase()} key #${currentKey.index}. Trying next key...`);
+        const delay = 2000 * Math.pow(2, currentKeyIndex); // Exponential Backoff: 2s, 4s, 8s...
+        console.warn(`[API Key Rotation] Quota/503 for ${currentKey.provider.toUpperCase()} key #${currentKey.index}. Pausing ${delay}ms before next key...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         currentKeyIndex++;
         continue;
       }

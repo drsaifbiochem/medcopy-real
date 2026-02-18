@@ -12,6 +12,8 @@ export interface GenerationInputs {
   includeHashtags: boolean;
   summarizerMode: boolean;
   examSummarizerMode: boolean;
+  image?: string;
+  imageMode?: boolean;
 }
 
 export interface Preset {

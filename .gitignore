@@ -25,4 +25,4 @@ dist-ssr
 .env
 sample.txt
 
-medcopy-aistudio*
+# medcopy-aistudio*

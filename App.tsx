@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { PresetSelector } from './components/PresetSelector';
 import { generateMedicalCopy } from './services/geminiService';
@@ -34,7 +34,9 @@ import {
   Save,
   X,
   FileSearch,
-  GraduationCap
+  GraduationCap,
+  Upload,
+  Image as LucideImage
 } from 'lucide-react';
 import { InfoTooltip } from './components/InfoTooltip';
 
@@ -52,7 +54,9 @@ export default function App() {
     carouselMode: false,
     includeHashtags: false,
     summarizerMode: false,
-    examSummarizerMode: false
+    examSummarizerMode: false,
+    imageMode: false,
+    image: ''
   });
 
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
@@ -64,6 +68,7 @@ export default function App() {
   // UI State
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [isSheetConfigOpen, setIsSheetConfigOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sheet Integration State
   const [sheetConfig, setSheetConfig] = useState({ clientId: '', spreadsheetId: '' });
@@ -92,18 +97,8 @@ export default function App() {
 
   // Auto-Save Effect
   useEffect(() => {
-    // Debug log to trace Auto-Save conditions
-    console.log("[App.tsx] Auto-Save Check:", {
-      hasResult: !!generatedResult,
-      hasSheetId: !!sheetConfig.spreadsheetId,
-      hasClientId: !!sheetConfig.clientId,
-      isSaving: isSheetSaving,
-      alreadySaved: sheetSaveSuccess
-    });
-
     if (generatedResult && sheetConfig.spreadsheetId && sheetConfig.clientId) {
       if (!isSheetSaving && !sheetSaveSuccess) {
-        console.log("[App.tsx] Triggering Auto-Save...");
         handleSaveToSheet();
       }
     }
@@ -117,29 +112,38 @@ export default function App() {
     setInputs(prev => {
       let updates: any = { [name]: value };
 
-      // Logic to make Batch Mode, Carousel Mode, and Summarizer Mode mutually exclusive
+      // Mutually Exclusive Modes Logic
       if (name === 'batchMode' && value === true) {
         updates.carouselMode = false;
         updates.summarizerMode = false;
         updates.examSummarizerMode = false;
-        if (prev.format === 'Multi-Format Exploder') {
-          updates.format = 'LinkedIn Post';
-        }
+        updates.imageMode = false;
+        if (prev.format === 'Multi-Format Exploder') updates.format = 'LinkedIn Post';
       }
       if (name === 'carouselMode' && value === true) {
         updates.batchMode = false;
         updates.summarizerMode = false;
         updates.examSummarizerMode = false;
+        updates.imageMode = false;
       }
       if (name === 'summarizerMode' && value === true) {
         updates.batchMode = false;
+        updates.carouselMode = false; // Keep imageMode allowed? Maybe not for now to keep it simple.
+        updates.imageMode = false;
+      }
+      if (name === 'imageMode' && value === true) {
+        updates.batchMode = false;
         updates.carouselMode = false;
+        updates.summarizerMode = false;
+        updates.examSummarizerMode = false;
       }
 
       // If disabling summarizer mode, also disable exam mode
       if (name === 'summarizerMode' && value === false) {
         updates.examSummarizerMode = false;
       }
+      // If disabling image mode, clear image?
+      // if (name === 'imageMode' && value === false) { updates.image = ''; } // Optional, better to keep state if toggled back
 
       return { ...prev, ...updates };
     });
@@ -147,6 +151,62 @@ export default function App() {
     if (name === 'persona') {
       setSelectedPresetId(null);
     }
+  };
+
+  // Handle Image Upload with Client-Side Resizing
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image size too large (Max 5MB). The system will attempt to compress it.");
+      } else {
+        setError(null);
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const img = new Image();
+        img.src = reader.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_WIDTH = 512; // Ultra-Fast Mode (512px) to prevent timeouts
+          const MAX_HEIGHT = 512;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Compress to JPEG with 0.8 quality
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+          setInputs(prev => ({
+            ...prev,
+            image: compressedBase64
+          }));
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearImage = () => {
+    setInputs(prev => ({ ...prev, image: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handlePresetSelect = (preset: Preset) => {
@@ -158,15 +218,23 @@ export default function App() {
     setError(null);
     setSheetSaveSuccess(false);
 
-    if (inputs.summarizerMode) {
+    // Validation Logic
+    if (inputs.imageMode) {
+      if (!inputs.image) {
+        setError("Please upload an image for analysis.");
+        return;
+      }
+      if (!inputs.persona.trim()) {
+        setError("Please select a Persona for the analysis.");
+        return;
+      }
+    } else if (inputs.summarizerMode) {
       if (!inputs.context.trim()) {
         setError("Please provide Source Text to summarize.");
         return;
       }
-      // For general summarizer, we need a persona. 
-      // For Exam Mode, we essentially override the persona with the system prompt, but sticking to a "Student/Teacher" persona from the list is good practice.
       if (!inputs.persona.trim()) {
-        setError("Please select a Persona for the summary (or use Exam Mode which overrides style).");
+        setError("Please select a Persona for the summary.");
         return;
       }
     } else {
@@ -220,7 +288,9 @@ export default function App() {
       carouselMode: false,
       includeHashtags: false,
       summarizerMode: false,
-      examSummarizerMode: false
+      examSummarizerMode: false,
+      imageMode: false,
+      image: ''
     });
     setGeneratedResult(null);
     setSelectedPresetId(null);
@@ -228,6 +298,7 @@ export default function App() {
     setActiveTab('linkedin');
     setIsPromptOpen(false);
     setSheetSaveSuccess(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSheetConfigSave = () => {
@@ -246,13 +317,10 @@ export default function App() {
 
     setIsSheetSaving(true);
     try {
-      // Only trigger client-side auth if we are NOT using the Apps Script Proxy
-      // AND we don't have an access token yet.
       const hasAppsScript = !!process.env.GOOGLE_APPS_SCRIPT_URL;
 
       if (!hasAppsScript && !isAuthorized()) {
         triggerAuth();
-        // Wait for auth flow (in reality, we'd wait for a callback, but for simplicity we stop here and ask user to click again after popup)
         setIsSheetSaving(false);
         return;
       }
@@ -291,7 +359,7 @@ export default function App() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
-              ? 'border-teal-500 text-teal-700 dark:text-teal-300 bg-teal-50/50 dark:bg-teal-900/20'
+              ? 'border-cyan-500 text-cyan-700 dark:text-cyan-300 bg-cyan-50/50 dark:bg-cyan-900/20'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
           >
@@ -303,633 +371,505 @@ export default function App() {
     );
   };
 
+  // --------------------------------------------------------------------------
+  // MAIN RENDER (PREMIUM GLASSMORPHISM UI)
+  // --------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-slate-900 dark:text-slate-50 transition-colors duration-200">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-[#0B1120] flex flex-col font-sans text-slate-900 dark:text-slate-50 transition-colors duration-200 selection:bg-cyan-500/30">
+      {/* Background Ambient Glows */}
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/10 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-screen animate-pulse-slow"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-screen animate-pulse-slow delay-1000"></div>
+      </div>
+
       <Header />
 
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-grow max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
 
-          {/* Left Column: Inputs */}
-          <div className="lg:col-span-5 flex flex-col h-full">
-            <div className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm border p-6 flex flex-col gap-6 relative transition-colors ${inputs.summarizerMode ? 'border-orange-200 dark:border-orange-900/40' : 'border-slate-200 dark:border-slate-800'}`}>
+          {/* Left Column: Inputs (Controls) */}
+          <div className="lg:col-span-5 flex flex-col h-full space-y-6">
+            <div className={`
+                backdrop-blur-xl bg-white/70 dark:bg-slate-900/60
+                rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-black/50
+                border border-white/50 dark:border-slate-700/50
+                p-6 flex flex-col gap-6 relative transition-all duration-300
+                ${inputs.summarizerMode ? 'ring-1 ring-orange-500/30' : ''}
+                ${inputs.imageMode ? 'ring-1 ring-cyan-500/30' : ''}
+            `}>
 
-              {/* Sheet Config Modal Overlay */}
+              {/* Sheet Config Modal */}
               {isSheetConfigOpen && (
-                <div className="absolute inset-0 z-50 bg-white/95 dark:bg-slate-900/95 rounded-xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
+                <div className="absolute inset-0 z-50 backdrop-blur-md bg-white/90 dark:bg-slate-900/90 rounded-2xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in-95 duration-200">
                   <div className="max-w-xs w-full">
-                    <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full w-fit mx-auto mb-4 text-green-600 dark:text-green-400">
-                      <Table size={24} />
+                    <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-full w-fit mx-auto mb-4 text-green-600 dark:text-green-400 shadow-lg shadow-green-500/20">
+                      <Table size={28} />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Connect Google Sheets</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                      Enter your Cloud Console details to enable "One-Click Save".
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Connect Google Sheets</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 font-medium">
+                      Enter API details for "One-Click Save".
                     </p>
-                    <div className="space-y-3 text-left">
+                    <div className="space-y-4 text-left">
                       <div>
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">OAuth Client ID</label>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1.5">OAuth Client ID</label>
                         <input
                           type="text"
                           value={sheetConfig.clientId}
                           onChange={(e) => setSheetConfig(prev => ({ ...prev, clientId: e.target.value }))}
                           placeholder="7382...apps.googleusercontent.com"
-                          className="w-full text-xs p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                          className="w-full text-xs p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-green-500 outline-none transition-all"
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Spreadsheet ID</label>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1.5">Spreadsheet ID</label>
                         <input
                           type="text"
                           value={sheetConfig.spreadsheetId}
                           onChange={(e) => setSheetConfig(prev => ({ ...prev, spreadsheetId: e.target.value }))}
                           placeholder="1BxiM..."
-                          className="w-full text-xs p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                          className="w-full text-xs p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-green-500 outline-none transition-all"
                         />
                       </div>
                     </div>
-                    <div className="mt-6 flex gap-2">
-                      <button onClick={() => setIsSheetConfigOpen(false)} className="flex-1 py-2 text-xs font-medium text-slate-500 hover:text-slate-800">Cancel</button>
-                      <button onClick={handleSheetConfigSave} className="flex-1 py-2 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700">Save Config</button>
+                    <div className="mt-8 flex gap-3">
+                      <button onClick={() => setIsSheetConfigOpen(false)} className="flex-1 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">Cancel</button>
+                      <button onClick={handleSheetConfigSave} className="flex-1 py-2.5 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg text-sm font-bold hover:shadow-lg hover:shadow-green-500/30 transition-all transform hover:-translate-y-0.5">Save Config</button>
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* Header: Persona & Sheets Link */}
               <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-semibold text-slate-800 dark:text-white flex items-center gap-2">
-                    <UserIcon className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                <div className="flex justify-between items-center mb-5">
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <span className="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 p-1.5 rounded-lg">
+                      <ScanEye size={20} />
+                    </span>
                     Select Persona
-                    <InfoTooltip text="Choose the voice and expertise level for the content generation." />
                   </h2>
 
                   <button
                     onClick={() => setIsSheetConfigOpen(true)}
-                    className={`text-xs flex items-center gap-1 px-2 py-1 rounded border transition-colors ${sheetConfig.clientId ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}
+                    className={`text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all font-medium ${sheetConfig.clientId ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                     title="Configure Google Sheets"
                   >
-                    <Table size={12} />
-                    {sheetConfig.clientId ? 'Sheets Linked' : 'Link Sheets'}
+                    <Table size={14} />
+                    {sheetConfig.clientId ? 'Sheets Active' : 'Link Sheets'}
                   </button>
                 </div>
 
                 <PresetSelector onSelect={handlePresetSelect} selectedId={selectedPresetId} />
 
                 {/* Collapsible System Prompt */}
-                <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                <div className="border-t border-slate-100 dark:border-slate-700/50 pt-4 mt-2">
                   <button
                     onClick={() => setIsPromptOpen(!isPromptOpen)}
-                    className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400 transition-colors w-full"
+                    className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors w-full group"
                   >
                     {isPromptOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     {isPromptOpen ? "Hide System Instructions" : "Reveal / Edit System Instructions"}
                   </button>
 
                   {isPromptOpen && (
-                    <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wide">
-                        System Prompt (Custom or Preset)
+                    <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wide">
+                        System Prompt (Advanced)
                       </label>
                       <textarea
                         name="persona"
                         value={inputs.persona}
                         onChange={handleInputChange}
-                        placeholder="E.g., You are a cynical ER nurse with 10 years experience..."
-                        className="w-full h-48 px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-100 font-mono"
+                        placeholder="Define the AI's identity here..."
+                        className="w-full h-48 px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-100 font-mono shadow-inner"
                       />
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* ... (Existing Inputs: Format, Audience, etc.) ... */}
+              {/* Mode Toggles (Chips) */}
+              <div className="flex flex-wrap gap-2 py-2">
+                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.enableDistillation ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-300'}`}>
+                  <input type="checkbox" name="enableDistillation" checked={inputs.enableDistillation} onChange={handleInputChange} className="hidden" />
+                  <FlaskConical size={14} className={inputs.enableDistillation ? 'text-indigo-600' : ''} />
+                  Thought Distiller
+                </label>
+
+                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.imageMode ? 'bg-cyan-50 border-cyan-200 text-cyan-700 dark:bg-cyan-900/20 dark:border-cyan-800 dark:text-cyan-300 shadow-sm' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-cyan-300'}`}>
+                  <input type="checkbox" name="imageMode" checked={inputs.imageMode || false} onChange={handleInputChange} className="hidden" />
+                  <ScanEye size={14} className={inputs.imageMode ? 'text-cyan-600' : ''} />
+                  Vision Mode
+                </label>
+
+                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.batchMode ? 'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-300' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-purple-300'}`}>
+                  <input type="checkbox" name="batchMode" checked={inputs.batchMode} onChange={handleInputChange} className="hidden" />
+                  <Layers size={14} className={inputs.batchMode ? 'text-purple-600' : ''} />
+                  Batch Mode
+                </label>
+
+                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.summarizerMode ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-orange-300'}`}>
+                  <input type="checkbox" name="summarizerMode" checked={inputs.summarizerMode} onChange={handleInputChange} className="hidden" />
+                  <FileSearch size={14} className={inputs.summarizerMode ? 'text-orange-600' : ''} />
+                  Summarizer
+                </label>
+
+                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.carouselMode ? 'bg-pink-50 border-pink-200 text-pink-700 dark:bg-pink-900/20 dark:border-pink-800 dark:text-pink-300' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-pink-300'}`}>
+                  <input type="checkbox" name="carouselMode" checked={inputs.carouselMode} onChange={handleInputChange} className="hidden" />
+                  <GalleryVerticalEnd size={14} className={inputs.carouselMode ? 'text-pink-600' : ''} />
+                  Carousel
+                </label>
+              </div>
+
+
+              {/* Core Inputs */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                    <MessageSquare size={14} />
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
                     Content Format
-                    <InfoTooltip text="Select structure (e.g. Post, Thread, Email). Disabled in specialized modes." />
                   </label>
-                  <select
-                    name="format"
-                    value={inputs.format}
-                    onChange={handleInputChange}
-                    disabled={inputs.batchMode || inputs.carouselMode || inputs.summarizerMode}
-                    className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-slate-900 dark:text-slate-100 ${(inputs.batchMode || inputs.carouselMode || inputs.summarizerMode) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <option>LinkedIn Post</option>
-                    <option>Twitter/X Thread</option>
-                    <option>Instagram Caption</option>
-                    <option>Patient Email Newsletter</option>
-                    <option>Clinical Blog Post</option>
-                    <option>Conference Abstract</option>
-                    {(!inputs.batchMode && !inputs.carouselMode && !inputs.summarizerMode) && <option className="font-bold text-indigo-700 dark:text-indigo-400">Multi-Format Exploder</option>}
-                  </select>
+                  <div className="relative">
+                    <select
+                      name="format"
+                      value={inputs.format}
+                      onChange={handleInputChange}
+                      disabled={inputs.batchMode || inputs.carouselMode || inputs.summarizerMode}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none appearance-none font-medium ${(inputs.batchMode || inputs.carouselMode || inputs.summarizerMode) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <option>LinkedIn Post</option>
+                      <option>Twitter/X Thread</option>
+                      <option>Instagram Caption</option>
+                      <option>Patient Email Newsletter</option>
+                      <option>Clinical Blog Post</option>
+                      <option>Conference Abstract</option>
+                      {(!inputs.batchMode && !inputs.carouselMode && !inputs.summarizerMode && !inputs.imageMode) && <option className="font-bold text-indigo-600 dark:text-indigo-400">Multi-Format Exploder</option>}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5 text-amber-700 dark:text-amber-500">
+                  <label className="block text-xs font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
                     <ShieldAlert size={14} />
-                    Audience Risk Filter
-                    <InfoTooltip text="Adjusts safety guardrails and technical depth based on who is reading." />
+                    Risk Filter
                   </label>
-                  <select
-                    name="audience"
-                    value={inputs.audience}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none font-medium"
-                  >
-                    <option>Layperson (Patient/Public)</option>
-                    <option>Medical Student</option>
-                    <option>Licensed Clinician</option>
-                    <option>Business Decision-Maker</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      name="audience"
+                      value={inputs.audience}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none appearance-none font-medium"
+                    >
+                      <option>Layperson (Patient/Public)</option>
+                      <option>Medical Student</option>
+                      <option>Licensed Clinician</option>
+                      <option>Business Decision-Maker</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500/50 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <div className="flex justify-between items-end mb-1">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <FileText size={14} />
-                    {inputs.summarizerMode
-                      ? 'Summary Goal / Focus (Optional)'
-                      : (inputs.batchMode ? 'Keywords / Core Theme' : (inputs.carouselMode ? 'Carousel Topic' : 'Topic / Raw Thought'))}
-                    <InfoTooltip text="The core subject or idea you want the AI to write about." />
-                  </label>
 
-                  <div className="flex gap-4">
-                    {/* Distillation Toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer group select-none">
-                      <input
-                        type="checkbox"
-                        name="enableDistillation"
-                        checked={inputs.enableDistillation}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-indigo-600 border-slate-300 dark:border-slate-600 rounded focus:ring-indigo-500 dark:bg-slate-800 cursor-pointer"
-                      />
-                      <span className={`text-xs font-medium transition-colors flex items-center gap-1 ${inputs.enableDistillation ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-indigo-500 dark:group-hover:text-indigo-400'}`}>
-                        <FlaskConical size={12} />
-                        Refine
-                      </span>
-                    </label>
-
-                    {/* Summarizer Mode Toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer group select-none">
-                      <input
-                        type="checkbox"
-                        name="summarizerMode"
-                        checked={inputs.summarizerMode}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-orange-600 border-slate-300 dark:border-slate-600 rounded focus:ring-orange-500 dark:bg-slate-800 cursor-pointer"
-                      />
-                      <span className={`text-xs font-medium transition-colors flex items-center gap-1 ${inputs.summarizerMode ? 'text-orange-600 dark:text-orange-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-orange-500 dark:group-hover:text-orange-400'}`}>
-                        <FileSearch size={12} />
-                        Summarizer
-                      </span>
-                    </label>
-
-                    {/* Carousel Mode Toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer group select-none">
-                      <input
-                        type="checkbox"
-                        name="carouselMode"
-                        checked={inputs.carouselMode}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-pink-600 border-slate-300 dark:border-slate-600 rounded focus:ring-pink-500 dark:bg-slate-800 cursor-pointer"
-                      />
-                      <span className={`text-xs font-medium transition-colors flex items-center gap-1 ${inputs.carouselMode ? 'text-pink-600 dark:text-pink-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-pink-500 dark:group-hover:text-pink-400'}`}>
-                        <GalleryVerticalEnd size={12} />
-                        Carousel
-                      </span>
-                    </label>
-
-                    {/* Batch Mode Toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer group select-none">
-                      <input
-                        type="checkbox"
-                        name="batchMode"
-                        checked={inputs.batchMode}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-purple-600 border-slate-300 dark:border-slate-600 rounded focus:ring-purple-500 dark:bg-slate-800 cursor-pointer"
-                      />
-                      <span className={`text-xs font-medium transition-colors flex items-center gap-1 ${inputs.batchMode ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-purple-500 dark:group-hover:text-purple-400'}`}>
-                        <Shuffle size={12} />
-                        Batch
-                      </span>
-                    </label>
-                  </div>
-                </div>
-
-                <textarea
-                  name="topic"
-                  value={inputs.topic}
-                  onChange={handleInputChange}
-                  placeholder={
-                    inputs.summarizerMode
-                      ? "Describe the goal (e.g. 'Extract clinical pearls' or 'Summarize for a 5-year-old'). Leave empty for general summary."
-                      : (inputs.batchMode ? "Enter keywords (e.g. 'Dengue, Prevention, hydration'). We'll generate random angles." : "What is this content about? (e.g., 'The importance of sleep hygiene for cardiac patients')")
-                  }
-                  className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-100 ${inputs.batchMode ? 'h-16 ring-1 ring-purple-100 dark:ring-purple-900' : (inputs.carouselMode ? 'h-24 ring-1 ring-pink-100 dark:ring-pink-900' : (inputs.summarizerMode ? 'h-16 ring-1 ring-orange-100 dark:ring-orange-900' : 'h-24'))}`}
-                />
-
-                {/* Batch Count Slider */}
-                {inputs.batchMode && (
-                  <div className="mt-3 bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-100 dark:border-purple-800 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-purple-800 dark:text-purple-300 flex items-center gap-1.5">
-                        <Dice5 size={12} />
-                        Generate {inputs.batchCount} Random Variations
+              {/* Dynamic Input Area */}
+              <div className="relative animate-in fade-in duration-300">
+                {/* Standard Text Inputs */}
+                {!inputs.imageMode && (
+                  <>
+                    <div className="flex justify-between items-end mb-2">
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                        {inputs.summarizerMode ? 'Summary Goal' : (inputs.batchMode ? 'Keywords' : 'Topic / Core Idea')}
                       </label>
-                      <span className="text-xs font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300">{inputs.batchCount} Posts</span>
+                      {/* Exam Mode Toggle if Summarizer */}
+                      {inputs.summarizerMode && (
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input type="checkbox" name="examSummarizerMode" checked={inputs.examSummarizerMode} onChange={handleInputChange} className="w-3.5 h-3.5 text-orange-600 rounded border-slate-300 focus:ring-orange-500" />
+                          <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">Exam Mode</span>
+                        </label>
+                      )}
                     </div>
-                    <input
-                      type="range"
-                      name="batchCount"
-                      min="1"
-                      max="10"
-                      value={inputs.batchCount}
-                      onChange={(e) => handleInputChange(e as any)}
-                      className="w-full h-1.5 bg-purple-200 dark:bg-purple-800 rounded-lg appearance-none cursor-pointer accent-purple-600 dark:accent-purple-400"
+                    <textarea
+                      name="topic"
+                      value={inputs.topic}
+                      onChange={handleInputChange}
+                      placeholder={inputs.summarizerMode ? "Describe goal..." : "What is this content about?"}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-none shadow-inner ${inputs.summarizerMode ? 'h-16' : 'h-24'}`}
                     />
+                  </>
+                )}
+
+                {/* Image Upload Area */}
+                {inputs.imageMode && (
+                  <div className="mb-4">
+                    <label className="block text-xs font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                      <Upload size={14} />
+                      Analysis Image
+                    </label>
+                    <div className="relative group">
+                      {inputs.image ? (
+                        <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 aspect-video bg-black/50 flex items-center justify-center">
+                          <img src={inputs.image} alt="Analysis Target" className="max-h-full max-w-full object-contain" />
+                          <button
+                            onClick={clearImage}
+                            className="absolute top-2 right-2 p-1.5 bg-red-500/80 hover:bg-red-600 text-white rounded-full transition-colors backdrop-blur-sm"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full h-40 border-2 border-dashed border-cyan-200 dark:border-cyan-900/50 rounded-xl bg-cyan-50/30 dark:bg-cyan-900/10 flex flex-col items-center justify-center cursor-pointer hover:bg-cyan-50/50 dark:hover:bg-cyan-900/20 transition-all group-hover:border-cyan-400"
+                        >
+                          <div className="p-3 bg-white dark:bg-slate-800 rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                            <LucideImage size={24} className="text-cyan-500" />
+                          </div>
+                          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Click to upload medical image</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Supports PNG, JPG, WebP</p>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageUpload}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                    </div>
+                    {/* Topic Input is still useful for Vision Mode context */}
+                    <div className="mt-4">
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">Specific Question / Focus</label>
+                      <textarea
+                        name="topic"
+                        value={inputs.topic}
+                        onChange={handleInputChange}
+                        placeholder="E.g., What pathology is visible in the upper right quadrant?"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-none shadow-inner h-20"
+                      />
+                    </div>
                   </div>
                 )}
 
-                {inputs.enableDistillation && !inputs.batchMode && !inputs.carouselMode && !inputs.summarizerMode && (
-                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-1.5 flex items-center gap-1">
-                    <FlaskConical size={10} />
-                    Distiller enabled: Will refine raw notes into a core insight before generating content.
-                  </p>
-                )}
-                {inputs.format === 'Multi-Format Exploder' && !inputs.batchMode && !inputs.carouselMode && !inputs.summarizerMode && (
-                  <p className="text-[10px] text-indigo-700 dark:text-indigo-400 mt-1.5 flex items-center gap-1 font-medium">
-                    <Layers size={10} />
-                    Exploder Active: One topic → 4 platforms (IG, LinkedIn, Email, Twitter).
-                  </p>
-                )}
-                {inputs.carouselMode && (
-                  <p className="text-[10px] text-pink-600 dark:text-pink-400 mt-1.5 flex items-center gap-1 font-medium">
-                    <GalleryVerticalEnd size={10} />
-                    Carousel Mode: Generating slide-by-slide structure.
-                  </p>
-                )}
-                {inputs.summarizerMode && (
-                  <div className="flex flex-col gap-1 mt-1.5">
-                    <p className="text-[10px] text-orange-600 dark:text-orange-400 flex items-center gap-1 font-medium">
-                      <FileSearch size={10} />
-                      Summarizer Mode: Paste source text below to extract persona-driven insights.
-                    </p>
-
-                    {/* Exam Mode Toggle (Nested inside Summarizer info) */}
-                    <label className="flex items-center gap-2 mt-2 cursor-pointer group select-none bg-orange-50 dark:bg-orange-900/20 p-2 rounded-md border border-orange-100 dark:border-orange-900/30 w-fit">
-                      <input
-                        type="checkbox"
-                        name="examSummarizerMode"
-                        checked={inputs.examSummarizerMode}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-orange-600 border-slate-300 dark:border-slate-600 rounded focus:ring-orange-500 dark:bg-slate-800 cursor-pointer"
-                      />
-                      <span className={`text-xs font-bold transition-colors flex items-center gap-1.5 ${inputs.examSummarizerMode ? 'text-orange-700 dark:text-orange-300' : 'text-slate-500 dark:text-slate-400 group-hover:text-orange-600 dark:group-hover:text-orange-400'}`}>
-                        <GraduationCap size={14} />
-                        Subtitle/Exam Mode (NEET-PG/USMLE)
-                      </span>
+                {/* Context / RAG Input */}
+                <div className="mt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className={`block text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${inputs.summarizerMode ? 'text-orange-600 dark:text-orange-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                      <BookOpen size={14} />
+                      {inputs.summarizerMode ? 'Source Text (Required)' : 'Medical Context (Optional)'}
                     </label>
+                    <div className="flex gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" name="includeHashtags" checked={inputs.includeHashtags} onChange={handleInputChange} className="w-3.5 h-3.5 text-pink-500 rounded border-slate-300 focus:ring-pink-500" />
+                        <span className="text-[10px] font-bold text-slate-500 hover:text-pink-500 transition-colors uppercase">Hashtags</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" name="includeCitations" checked={inputs.includeCitations} onChange={handleInputChange} className="w-3.5 h-3.5 text-teal-600 rounded border-slate-300 focus:ring-teal-500" />
+                        <span className="text-[10px] font-bold text-slate-500 hover:text-teal-600 transition-colors uppercase">Citations</span>
+                      </label>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className={`block text-sm font-medium flex items-center gap-1.5 ${inputs.summarizerMode ? 'text-orange-700 dark:text-orange-400 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
-                    <BookOpen size={14} />
-                    {inputs.summarizerMode ? 'Source Text to Summarize (Required)' : 'Medical Context (RAG / Reference)'}
-                    <InfoTooltip text={inputs.summarizerMode ? "Paste the full text here." : "Paste facts/studies here. AI will strictly adhere to this context."} />
-                  </label>
-                  <div className="flex items-center gap-4">
-                    {/* Hashtags Checkbox */}
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        name="includeHashtags"
-                        checked={inputs.includeHashtags}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-pink-500 border-slate-300 dark:border-slate-600 rounded focus:ring-pink-500 dark:bg-slate-800 cursor-pointer"
-                      />
-                      <span className={`text-xs font-medium transition-colors flex items-center gap-1 ${inputs.includeHashtags ? 'text-pink-600 dark:text-pink-400' : 'text-slate-500 dark:text-slate-400 group-hover:text-pink-600 dark:group-hover:text-pink-400'}`}>
-                        <Hash size={12} />
-                        Smart Hashtags
-                      </span>
-                    </label>
-
-                    {/* Auto-Citations Checkbox */}
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        name="includeCitations"
-                        checked={inputs.includeCitations}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-teal-600 border-slate-300 dark:border-slate-600 rounded focus:ring-teal-500 dark:bg-slate-800 cursor-pointer"
-                      />
-                      <span className={`text-xs font-medium transition-colors flex items-center gap-1 ${inputs.includeCitations ? 'text-teal-600 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400'}`}>
-                        <Quote size={12} />
-                        Auto-Citations
-                      </span>
-                    </label>
-                  </div>
+                  <textarea
+                    name="context"
+                    value={inputs.context}
+                    onChange={handleInputChange}
+                    placeholder={inputs.summarizerMode ? "Paste text to summarize..." : "Paste relevant medical facts..."}
+                    className={`w-full px-4 py-3 bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all resize-none shadow-inner ${inputs.summarizerMode ? 'h-48' : 'h-32'}`} // Increased height for summarizer
+                  />
                 </div>
-                <textarea
-                  name="context"
-                  value={inputs.context}
-                  onChange={handleInputChange}
-                  placeholder={
-                    inputs.examSummarizerMode
-                      ? "Paste timestamped transcripts or subtitles (e.g. '00:11:06 This is important...'). We will extract the high-yield topics."
-                      : (inputs.summarizerMode ? "Paste the full text, article, or notes you want to summarize here..." : "Paste verified medical facts, study results, or guidelines here. The AI will strictly adhere to this context for accuracy.")
-                  }
-                  className={`w-full px-4 py-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/30 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all resize-none placeholder:text-amber-800/50 dark:placeholder:text-amber-500/50 text-slate-800 dark:text-amber-100 ${inputs.summarizerMode ? 'h-64 ring-2 ring-orange-200 dark:ring-orange-900/50 bg-orange-50/50 dark:bg-orange-900/10' : 'h-32'}`}
-                />
-                {!inputs.summarizerMode && (
-                  <p className="text-[10px] text-amber-700 dark:text-amber-500 mt-1.5 font-medium flex items-center gap-1">
-                    <AlertCircle size={10} />
-                    Strict Mode: AI will limit claims to this provided context.
-                  </p>
-                )}
               </div>
 
-              <div className="mt-auto pt-2 flex gap-3">
+
+              {/* Action Bar */}
+              <div className="mt-auto pt-4 flex gap-4 border-t border-slate-100 dark:border-slate-700/50">
                 <button
                   onClick={handleClear}
-                  className="px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center justify-center gap-2"
+                  className="px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 hover:shadow-sm"
+                  title="Reset All"
                 >
                   <RotateCcw size={18} />
                 </button>
+
                 <button
                   onClick={handleGenerate}
-                  disabled={isGenerating || (inputs.summarizerMode ? !inputs.context : (!inputs.persona || !inputs.topic))}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-white font-semibold shadow-md transition-all ${isGenerating || (inputs.summarizerMode ? !inputs.context : (!inputs.persona || !inputs.topic))
+                  disabled={isGenerating || (inputs.summarizerMode ? !inputs.context : (inputs.imageMode ? !inputs.image : (!inputs.persona || !inputs.topic)))}
+                  className={`flex-1 flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-bold shadow-lg hover:shadow-cyan-500/25 transition-all transform active:scale-[0.98] ${isGenerating || (inputs.summarizerMode ? !inputs.context : (inputs.imageMode ? !inputs.image : (!inputs.persona || !inputs.topic)))
                     ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none'
-                    : inputs.batchMode
-                      ? 'bg-purple-600 hover:bg-purple-700 hover:shadow-lg'
-                      : inputs.carouselMode
-                        ? 'bg-pink-600 hover:bg-pink-700 hover:shadow-lg'
-                        : inputs.summarizerMode
-                          ? 'bg-orange-600 hover:bg-orange-700 hover:shadow-lg'
-                          : 'bg-teal-600 hover:bg-teal-700 hover:shadow-lg active:transform active:scale-[0.98]'
+                    : inputs.imageMode
+                      ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500' // Vision Gradient
+                      : inputs.batchMode
+                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500' // Batch Gradient
+                        : inputs.carouselMode
+                          ? 'bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500' // Carousel Gradient
+                          : inputs.summarizerMode
+                            ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500' // Summarizer Gradient
+                            : 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500' // Default Gradient
                     }`}
                 >
                   {isGenerating ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Generating...
+                      <span className="animate-pulse">Processing...</span>
                     </>
                   ) : (
                     <>
-                      {inputs.batchMode
-                        ? <Shuffle size={18} />
-                        : (inputs.carouselMode
-                          ? <GalleryVerticalEnd size={18} />
-                          : (inputs.summarizerMode
-                            ? (inputs.examSummarizerMode ? <GraduationCap size={18} /> : <FileSearch size={18} />)
-                            : (inputs.format === 'Multi-Format Exploder' ? <Layers size={18} /> : <Wand2 size={18} />)
-                          )
-                        )
-                      }
-                      {inputs.batchMode
-                        ? `Generate ${inputs.batchCount} Variations`
-                        : (inputs.carouselMode
-                          ? 'Generate Carousel'
-                          : (inputs.summarizerMode
-                            ? 'Summarize Text'
-                            : (inputs.format === 'Multi-Format Exploder' ? 'Explode Content' : 'Generate Draft')
-                          )
-                        )
-                      }
+                      {inputs.imageMode ? <ScanEye size={20} /> : <Wand2 size={20} />}
+                      <span className="tracking-wide">
+                        {inputs.imageMode ? 'Analyze Image' : (inputs.summarizerMode ? 'Summarize' : 'Generate')}
+                      </span>
                     </>
                   )}
                 </button>
               </div>
 
               {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-3 rounded-lg text-sm border border-red-100 dark:border-red-900/30 flex items-start gap-2">
-                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                  {error}
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm border border-red-100 dark:border-red-900/30 flex items-start gap-3 animate-in slide-in-from-bottom-2">
+                  <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                  <span className="font-medium">{error}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right Column: Output */}
+          {/* Right Column: Output (Display) */}
           <div className="lg:col-span-7 flex flex-col h-full">
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col h-full min-h-[600px] lg:min-h-0 relative overflow-hidden">
+            <div className="backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 border border-white/50 dark:border-slate-700/50 flex flex-col h-full min-h-[600px] lg:min-h-0 relative overflow-hidden transition-all duration-300">
 
               {/* Output Header */}
               <div className="border-b border-slate-100 dark:border-slate-800 px-6 py-4 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${generatedResult ? (generatedResult.batchOutput ? 'bg-purple-500' : (generatedResult.carouselOutput ? 'bg-pink-500' : 'bg-teal-500')) : 'bg-slate-300 dark:bg-slate-600'} ${isGenerating ? 'animate-pulse' : ''}`}></div>
-                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                      {generatedResult?.multiFormatOutput
-                        ? 'Multi-Format Output'
-                        : (generatedResult?.batchOutput
-                          ? 'Random Batch Output'
-                          : (generatedResult?.carouselOutput
-                            ? 'Carousel Output'
-                            : (inputs.summarizerMode && generatedResult ? 'Summary Result' : 'Output Preview')))}
+                    <div className={`h-2.5 w-2.5 rounded-full shadow-sm transition-colors duration-500 ${generatedResult ? 'bg-green-500 shadow-green-500/50' : 'bg-slate-300 dark:bg-slate-600'} ${isGenerating ? 'animate-ping bg-cyan-400' : ''}`}></div>
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                      Generation Result
                     </h3>
                   </div>
 
                   {/* Drift Score Badge */}
                   {generatedResult?.driftScore !== undefined && (
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${getScoreColor(generatedResult.driftScore)}`}>
+                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider shadow-sm ${getScoreColor(generatedResult.driftScore)}`}>
                       <ScanEye size={12} />
-                      <span>Persona Match: {generatedResult.driftScore}%</span>
+                      <span>Match: {generatedResult.driftScore}%</span>
                     </div>
                   )}
                 </div>
 
                 {generatedResult && !generatedResult.batchOutput && (
                   <div className="flex items-center gap-2">
-                    {/* Google Sheets Save Button */}
                     <button
                       onClick={handleSaveToSheet}
                       disabled={isSheetSaving || sheetSaveSuccess}
-                      className={`text-sm flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all border ${sheetSaveSuccess
-                        ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border-green-300 dark:border-green-700'
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400'
+                      className={`text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 px-4 py-2 rounded-lg transition-all border shadow-sm ${sheetSaveSuccess
+                        ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-green-400 hover:text-green-600 hover:shadow-green-100 dark:hover:shadow-none'
                         }`}
                     >
                       {isSheetSaving ? (
-                        <div className="w-3.5 h-3.5 border-2 border-slate-400 border-t-slate-600 rounded-full animate-spin" />
+                        <div className="w-3 h-3 border-2 border-slate-400 border-t-slate-600 rounded-full animate-spin" />
                       ) : sheetSaveSuccess ? (
                         <CheckCheck size={14} />
                       ) : (
                         <Table size={14} />
                       )}
-                      {sheetSaveSuccess ? 'Saved!' : 'Save to Sheets'}
+                      {sheetSaveSuccess ? 'Saved' : 'Save to Sheets'}
                     </button>
 
                     <button
                       onClick={() => handleCopy()}
-                      className={`text-sm flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all border ${copySuccess
+                      className={`text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 px-4 py-2 rounded-lg transition-all border shadow-sm ${copySuccess
                         ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800'
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-900 dark:hover:text-white'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 hover:text-slate-900 hover:shadow-md'
                         }`}
                     >
                       {copySuccess ? <CheckCheck size={14} /> : <Copy size={14} />}
-                      {copySuccess ? 'Copied' : 'Copy Text'}
+                      {copySuccess ? 'Copied' : 'Copy'}
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Output Content */}
-              <div className="flex-1 px-8 py-6 overflow-y-auto bg-white dark:bg-slate-900">
+              {/* Output Content Area */}
+              <div className="flex-1 px-8 py-8 overflow-y-auto bg-white/50 dark:bg-slate-900/50 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
                 {generatedResult ? (
-                  <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-4 duration-500">
+
                     {/* Distilled Insight Block */}
                     {generatedResult.distilledInsight && (
-                      <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg p-4 relative">
-                        <div className="absolute top-3 left-3 text-indigo-400">
-                          <FlaskConical size={16} />
+                      <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/20 dark:to-slate-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-5 relative shadow-sm">
+                        <div className="absolute top-4 left-4 text-indigo-400 dark:text-indigo-500">
+                          <FlaskConical size={18} />
                         </div>
-                        <div className="pl-7">
-                          <p className="text-xs font-bold text-indigo-800 dark:text-indigo-300 uppercase tracking-wide mb-1">Thought Distiller Insight</p>
-                          <p className="text-indigo-900 dark:text-indigo-200 font-medium text-sm leading-relaxed italic">
+                        <div className="pl-8">
+                          <p className="text-[10px] font-bold text-indigo-400 dark:text-indigo-400 uppercase tracking-widest mb-2">Core Insight</p>
+                          <p className="text-indigo-900 dark:text-indigo-200 font-serif text-lg leading-relaxed italic">
                             "{generatedResult.distilledInsight}"
                           </p>
                         </div>
                       </div>
                     )}
 
-                    {/* Tab Content for Multi-Format */}
+                    {/* Multi-Format Tabs */}
                     {generatedResult.multiFormatOutput && renderMultiFormatTabs()}
 
-                    {/* Batch Output Rendering */}
-                    {generatedResult.batchOutput ? (
-                      <div className="space-y-6">
-                        {generatedResult.batchOutput.map((post, index) => (
-                          <div key={index} className="group relative bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-6 transition-all hover:shadow-md hover:border-purple-200 dark:hover:border-purple-800">
-                            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(post);
-                                  setCopySuccess(true);
-                                  setTimeout(() => setCopySuccess(false), 2000);
-                                }}
-                                className="p-1.5 bg-white dark:bg-slate-700 text-slate-500 hover:text-purple-600 rounded-md border border-slate-200 dark:border-slate-600 shadow-sm"
-                                title="Copy this post"
-                              >
-                                <Copy size={14} />
-                              </button>
-                            </div>
-                            <div className="absolute -left-3 top-6 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs font-bold px-2 py-1 rounded shadow-sm border border-purple-200 dark:border-purple-800">
-                              #{index + 1}
-                            </div>
-                            <pre className="whitespace-pre-wrap font-sans text-base leading-relaxed text-slate-800 dark:text-slate-200 pl-2">
-                              {post}
-                            </pre>
-                          </div>
-                        ))}
-
-                        {/* Save to Sheets button for batch mode */}
-                        <div className="flex items-center gap-2 pt-2">
-                          <button
-                            onClick={handleSaveToSheet}
-                            disabled={isSheetSaving || sheetSaveSuccess}
-                            className={`text-sm flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all border ${sheetSaveSuccess
-                              ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border-green-300 dark:border-green-700'
-                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400'
-                              }`}
-                          >
-                            {isSheetSaving ? (
-                              <div className="w-3.5 h-3.5 border-2 border-slate-400 border-t-slate-600 rounded-full animate-spin" />
-                            ) : sheetSaveSuccess ? (
-                              <CheckCheck size={14} />
-                            ) : (
-                              <Table size={14} />
-                            )}
-                            {sheetSaveSuccess ? 'Saved!' : 'Save to Sheets'}
-                          </button>
-                        </div>
-                      </div>
-                    ) : generatedResult.carouselOutput ? (
-                      /* Carousel Output Rendering */
-                      <div className="space-y-4">
-                        {generatedResult.carouselOutput.map((slide) => (
-                          <div key={slide.slideNumber} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800/40">
-                            <div className="bg-slate-50 dark:bg-slate-800 px-4 py-2 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Slide {slide.slideNumber}</span>
-                              <div className="h-2 w-2 rounded-full bg-pink-400"></div>
-                            </div>
-                            <div className="p-5">
-                              <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">{slide.title}</h4>
-                              <p className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap mb-4 leading-relaxed">{slide.content}</p>
-
-                              <div className="bg-pink-50 dark:bg-pink-900/20 rounded-lg p-3 text-sm text-pink-800 dark:text-pink-300 flex gap-3 border border-pink-100 dark:border-pink-900/30">
-                                <div className="shrink-0 mt-0.5"><ImageIcon size={16} /></div>
-                                <div>
-                                  <span className="block text-xs font-bold uppercase mb-0.5 opacity-70">Visual Cue</span>
-                                  {slide.visualDescription}
+                    {/* Main Content Display */}
+                    <div className="prose prose-slate dark:prose-invert max-w-none text-sm leading-7">
+                      {
+                        generatedResult.batchOutput ? (
+                          <ul className="space-y-4 list-none p-0">
+                            {generatedResult.batchOutput.map((post, idx) => (
+                              <li key={idx} className="bg-white dark:bg-slate-800/50 p-5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded">Var {idx + 1}</span>
+                                  <button onClick={() => handleCopy(post)} className="text-slate-400 hover:text-purple-500"><Copy size={14} /></button>
+                                </div>
+                                <div className="whitespace-pre-wrap font-sans text-slate-800 dark:text-slate-200">{post}</div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : generatedResult.carouselOutput ? (
+                          <div className="space-y-8">
+                            {generatedResult.carouselOutput.map((slide, idx) => (
+                              <div key={idx} className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-lg transition-all group">
+                                <div className="bg-pink-50/50 dark:bg-pink-900/10 px-6 py-4 border-b border-pink-100 dark:border-pink-900/20 flex justify-between items-center">
+                                  <span className="font-bold text-pink-700 dark:text-pink-400 text-xs uppercase tracking-widest">Slide {slide.slideNumber}</span>
+                                </div>
+                                <div className="p-6">
+                                  <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-3">{slide.title}</h4>
+                                  <div className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 mb-6">{slide.content}</div>
+                                  <div className="bg-slate-50 dark:bg-black/20 rounded-lg p-4 border border-slate-100 dark:border-slate-800 flex gap-3">
+                                    <div className="mt-1 text-slate-400"><ImageIcon size={16} /></div>
+                                    <div>
+                                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Visual Directive</span>
+                                      <p className="text-xs text-slate-500 dark:text-slate-400 italic">{slide.visualDescription}</p>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      /* Standard Content */
-                      <div className="prose prose-slate dark:prose-invert prose-headings:font-semibold prose-a:text-teal-600 max-w-none">
-                        <pre className="whitespace-pre-wrap font-sans text-base leading-relaxed text-slate-800 dark:text-slate-200">
-                          {generatedResult.multiFormatOutput
-                            ? generatedResult.multiFormatOutput[activeTab]
-                            : generatedResult.content}
-                        </pre>
-                      </div>
-                    )}
-
-                    {generatedResult.driftReasoning && (
-                      <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-lg p-3 text-xs text-slate-500 dark:text-slate-400 mt-4">
-                        <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Analysis:</span>
-                        {generatedResult.driftReasoning}
-                      </div>
-                    )}
+                        ) : (
+                          <div className="whitespace-pre-wrap font-sans text-base text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800/30 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                            {generatedResult.multiFormatOutput ? generatedResult.multiFormatOutput[activeTab] : generatedResult.content}
+                          </div>
+                        )
+                      }
+                    </div>
                   </div>
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-700">
-                    <Wand2 size={48} className="mb-4 opacity-20" />
-                    <p className="text-sm font-medium">Ready to generate medical copy</p>
-                    <p className="text-xs max-w-xs text-center mt-2 opacity-60">
-                      Configure your persona and topic on the left to begin content creation.
+                  <div className="h-full flex flex-col items-center justify-center text-center opacity-40 select-none pointer-events-none">
+                    <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                      <Wand2 size={48} className="text-slate-300 dark:text-slate-600" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-400 dark:text-slate-500">Ready to Create</h3>
+                    <p className="text-sm text-slate-400 dark:text-slate-600 max-w-xs mt-2">
+                      Select a persona, choose your settings, and let the AI draft your medical content.
                     </p>
                   </div>
                 )}
               </div>
-
-              {/* Footer Disclaimers */}
-              <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 text-[10px] text-slate-400 dark:text-slate-600 flex justify-between items-center">
-                <span>Generated by MedCopy AI Engine</span>
-                <span className="flex items-center gap-1"><AlertCircle size={10} /> Content requires clinical review.</span>
-              </div>
             </div>
           </div>
-
         </div>
       </main>
     </div>
   );
 }
-
-// Icon helper since lucide-react User isn't exported as UserIcon sometimes depending on version or conflict
-const UserIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
