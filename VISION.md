@@ -42,11 +42,11 @@ The **MedCopy Vision System** allows users to upload medical images (X-rays, MRI
         1.  `text`: The system instructions + vision prompt.
         2.  `inlineData`: The Base64 encoded image data and MIME type.
 *   **Performance Optimization**:
-    *   **Client-Side Resizing**: Automatically resizes images to **896x896** (Gemma 3 Native Encoder Resolution) to maximize performance and prevent timeouts.
+    *   **Client-Side Resizing**: Automatically resizes images to **512x512** (Ultra-Fast Mode) to maximize performance and prevent timeouts.
     *   **Extended Timeout**: Configured with a 300-second (5-minute) timeout.
 *   **Smart Retry System**:
     *   Automatically detects **503 Service Unavailable** and **Deadline Exceeded** errors.
-    *   Treats these as transient failures and seamless retries with the next available API key in the rotation.
+    *   **Exponential Backoff**: Pauses (2s, 4s, 8s...) between retries to prevent API overload.
 *   **Model Configuration**:
     *   **Primary**: `gemma-3-27b-it` (High fidelity, multimodal).
     *   **Fallback**: None. (User enforced strict model adherence).

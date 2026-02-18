@@ -234,6 +234,14 @@ INSTRUCTIONS:
 4. Apply the tone and style of the Persona.
 5. Adhere to the safety guardrails for the specific Audience.
 
+FORMATTING REQUIREMENTS:
+- Use Markdown Headers (##) to structure the analysis.
+- Use Bullet Points for clarity.
+- Use **Bold** for key findings or emphasis.
+
+${inputs.includeHashtags ? "6. GENERATE HASHTAGS: You must include 5-10 relevant hashtags at the end." : ""}
+${inputs.includeCitations ? "7. INCLUDE CITATIONS: Cite relevant medical guidelines if applicable." : ""}
+
 ${antiAiStyleInstruction}
 ${citationInstruction}
 `;

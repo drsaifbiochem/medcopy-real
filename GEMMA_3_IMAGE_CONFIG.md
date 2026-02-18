@@ -64,7 +64,12 @@ contents: [
 
 ### 3.4 Reliability Strategy (New)
 *   **Smart Query Retry**: Automatically detects 503/Quota errors.
-*   **Exponential Backoff**: Implemented delays between retries (1s, 2s, 4s, etc.) to prevent thundering herd effects on the API during outages.
+*   **Exponential Backoff**: Implemented delays between retries (2s, 4s, 8s, etc.) with a 2000ms base delay to prevent thundering herd effects.
+*   **Ultra-Fast Mode**: 512x512px resolution limit to minimize token usage and latency.
+
+### 3.5 Prompt Features
+*   **Dynamic Injection**: Hashtags and Citations are only requested if selected in the UI.
+*   **Strict Formatting**: Output is forced into structured Markdown (## Headers, **Bold**, - Bullets).
 
 ## 4. Fallback Strategy
 **Current Status: DISABLED** (User enforced strict model adherence).

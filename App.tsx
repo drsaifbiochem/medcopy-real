@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import * as React from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { PresetSelector } from './components/PresetSelector';
+import ReactMarkdown from 'react-markdown';
 import { generateMedicalCopy } from './services/geminiService';
 import { initGoogleAuth, saveToSheet, triggerAuth, isAuthorized } from './services/sheetService';
 import { GenerationInputs, Preset, GenerationResult } from './types';
@@ -107,7 +109,9 @@ export default function App() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const target = e.target;
     const name = target.name;
-    const value = target.type === 'checkbox' ? (target as HTMLInputElement).checked : target.value;
+    const value = target.type === 'checkbox' ? (target as HTMLInputElement).checked
+      : (name === 'batchCount' || name === 'driftThreshold') ? parseInt(target.value, 10)
+        : target.value;
 
     setInputs(prev => {
       let updates: any = { [name]: value };
@@ -577,8 +581,23 @@ export default function App() {
                   <>
                     <div className="flex justify-between items-end mb-2">
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                        {inputs.summarizerMode ? 'Summary Goal' : (inputs.batchMode ? 'Keywords' : 'Topic / Core Idea')}
+                        {inputs.summarizerMode ? 'Summary Goal' : (inputs.batchMode ? 'Topic / Keywords' : 'Topic / Core Idea')}
                       </label>
+                      {/* Batch Mode Slider */}
+                      {inputs.batchMode && (
+                        <div className="flex items-center gap-3 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-lg border border-purple-100 dark:border-purple-800">
+                          <span className="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase">Variations: {inputs.batchCount || 3}</span>
+                          <input
+                            type="range"
+                            name="batchCount"
+                            min="1"
+                            max="5"
+                            value={inputs.batchCount || 3}
+                            onChange={handleInputChange}
+                            className="w-20 h-1.5 bg-purple-200 dark:bg-purple-800 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                          />
+                        </div>
+                      )}
                       {/* Exam Mode Toggle if Summarizer */}
                       {inputs.summarizerMode && (
                         <label className="flex items-center gap-2 cursor-pointer group">
@@ -847,8 +866,29 @@ export default function App() {
                             ))}
                           </div>
                         ) : (
-                          <div className="whitespace-pre-wrap font-sans text-base text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800/30 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
-                            {generatedResult.multiFormatOutput ? generatedResult.multiFormatOutput[activeTab] : generatedResult.content}
+                          <div className="prose prose-slate dark:prose-invert max-w-none bg-white dark:bg-slate-800/30 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                            <ReactMarkdown
+                              components={{
+                                h1: ({ node, ...props }) => <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-4 border-b border-slate-200 dark:border-slate-700 pb-2" {...props} />,
+                                h2: ({ node, ...props }) => <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-6 mb-3 flex items-center gap-2" {...props} />,
+                                h3: ({ node, ...props }) => <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mt-4 mb-2" {...props} />,
+                                p: ({ node, ...props }) => <p className="mb-4 text-slate-600 dark:text-slate-300 leading-relaxed" {...props} />,
+                                ul: ({ node, ...props }) => <ul className="space-y-2 mb-4" {...props} />,
+                                li: ({ node, ...props }) => (
+                                  <li className="flex gap-2 items-start text-slate-600 dark:text-slate-300">
+                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
+                                    <span>{props.children}</span>
+                                  </li>
+                                ),
+                                strong: ({ node, ...props }) => <strong className="font-bold text-cyan-700 dark:text-cyan-400" {...props} />,
+                                blockquote: ({ node, ...props }) => (
+                                  <blockquote className="border-l-4 border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20 p-4 rounded-r-lg italic text-slate-700 dark:text-slate-300 my-4" {...props} />
+                                ),
+                                code: ({ node, ...props }) => <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sm font-mono text-pink-600 dark:text-pink-400" {...props} />,
+                              }}
+                            >
+                              {generatedResult.multiFormatOutput ? generatedResult.multiFormatOutput[activeTab] : generatedResult.content}
+                            </ReactMarkdown>
                           </div>
                         )
                       }

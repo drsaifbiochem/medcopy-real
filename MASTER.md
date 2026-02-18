@@ -30,10 +30,13 @@
 - **Config Loading**: Automatically loads Sheet ID and Client ID from `.env` file
 - **Debug Logging**: Console logs show auto-save trigger conditions
 
-### 5. Vision Feature & UI Overhaul (2026-02-18)
+### 5. Vision Feature & UI Overhaul (2026-02-18/19)
 - **Added**: Vision Mode for analyzing medical images using `gemma-3-27b-it`.
+- **Optimization**: "Ultra-Fast Mode" (512px resizing) implemented in `App.tsx` for performance.
+- **Reliability**: Exponential backoff and 503 retry logic added to `geminiService.ts`.
 - **UI**: Complete Glassmorphism redesign (Header, PresetSelector, Cards).
-- **Docs**: Added `VISION.md` for detailed vision system documentation.
+- **Styling**: Premium Markdown rendering with Cyan accents and Medical Notes via `ReactMarkdown`.
+- **Docs**: Added `VISION.md`, `GEMMA_3_IMAGE_CONFIG.md`, and `OUTPUT_FORMATTING.md`.
 
 ---
 
@@ -554,7 +557,7 @@ This application is **client-side only** with no backend API routes. All API cal
 | Service | Purpose | Security Level | Authentication |
 |---------|---------|----------------|----------------|
 | **Google GenAI API** | AI content generation (Gemma 3 27B IT) | 🔒 **Medium** | API Key (client-side) |
-| **Mistral AI API** | Fallback AI provider | 🔒 **Medium** | API Key (client-side) |
+| **Mistral AI API** | Fallback AI provider (Non-Vision only) | 🔒 **Medium** | API Key (client-side) |
 | **Google Sheets API** | Save generated content | 🔒 **High** | OAuth 2.0 |
 | **Google Apps Script** | Advanced Sheets integration (optional) | 🔒 **Medium** | Web App URL |
 
@@ -799,21 +802,26 @@ For detailed setup instructions, see:
 
 ## 11. Vision & Multimodal Features
 
-> **See `VISION.md` for full details.**
+> **See [VISION.md](VISION.md) and [GEMMA_3_IMAGE_CONFIG.md](GEMMA_3_IMAGE_CONFIG.md) for full details.**
 
 ### Enabling Vision Mode
 **File:** `App.tsx` (Line ~580)
 - **Toggle**: Mutually exclusive with Batch, Carousel, and Summarizer modes.
-- **Model**: `gemma-3-27b-it` (hardcoded for vision tasks).
+- **Model**: `gemma-3-27b-it` (No fallback for Vision).
 
-### Components
-- **Image Upload**: Drag-and-drop zone using standard `<input type="file">`.
-- **Preview**: Displays selected image with a "Clear" button.
-- **Prompt Injection**: Appends image data as `inlineData` to the model prompt.
+### Image Processing (Ultra-Fast Mode)
+- **Resizing**: `App.tsx` resizes to **512px** max dimension on upload.
+- **Timeout**: `geminiService.ts` uses a **300s** timeout for Vision calls.
+- **Retries**: exponential backoff (2s, 4s, 8...) for 503 errors.
+
+### Output Styling
+- **Renderer**: `react-markdown` with Tailwind `@tailwindcss/typography`.
+- **Tokens**: Cyan accents for emphasis, circle dots for lists, cyan borders for blockquotes.
+- **Documentation**: See [OUTPUT_FORMATTING.md](OUTPUT_FORMATTING.md).
 
 ### Quick Tweaks
-- **Change Model**: Update `geminiService.ts` (Search for `gemma-3-27b-it`).
-- **Max Image Size**: Currently limited by browser memory and API payload limits (~4MB safe zone).
+- **Change Resolution**: Update `MAX_WIDTH`/`MAX_HEIGHT` in `App.tsx` (Line 170).
+- **Change Accent**: Replace `cyan` classes in `MarkdownComponents` in `App.tsx`.
 
 ---
 
