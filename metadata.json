@@ -1,0 +1,5 @@
+{
+  "name": "MedCopy",
+  "description": "A medically grounded content generation engine for professionals, creating accurate, persona-driven copy.",
+  "requestFramePermissions": []
+}
