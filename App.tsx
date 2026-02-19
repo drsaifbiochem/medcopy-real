@@ -559,34 +559,34 @@ export default function App() {
               </div>
 
               {/* Mode Toggles (Chips) */}
-              <div className="flex flex-wrap gap-2 py-2">
-                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.enableDistillation ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-300'}`}>
+              <div className="flex flex-wrap gap-2 py-1">
+                <label className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.enableDistillation ? 'bg-indigo-50 border-indigo-300 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-700 dark:text-indigo-300 shadow-sm' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-700 dark:hover:text-indigo-400'}`}>
                   <input type="checkbox" name="enableDistillation" checked={inputs.enableDistillation} onChange={handleInputChange} className="hidden" />
-                  <FlaskConical size={14} className={inputs.enableDistillation ? 'text-indigo-600' : ''} />
+                  <FlaskConical size={13} className={inputs.enableDistillation ? 'text-indigo-500' : 'text-slate-400'} />
                   Thought Distiller
                 </label>
 
-                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.imageMode ? 'bg-cyan-50 border-cyan-200 text-cyan-700 dark:bg-cyan-900/20 dark:border-cyan-800 dark:text-cyan-300 shadow-sm' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-cyan-300'}`}>
+                <label className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.imageMode ? 'bg-cyan-50 border-cyan-300 text-cyan-700 dark:bg-cyan-900/20 dark:border-cyan-700 dark:text-cyan-300 shadow-sm' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-cyan-300 hover:text-cyan-600 dark:hover:border-cyan-700 dark:hover:text-cyan-400'}`}>
                   <input type="checkbox" name="imageMode" checked={inputs.imageMode || false} onChange={handleInputChange} className="hidden" />
-                  <ScanEye size={14} className={inputs.imageMode ? 'text-cyan-600' : ''} />
+                  <ScanEye size={13} className={inputs.imageMode ? 'text-cyan-500' : 'text-slate-400'} />
                   Vision Mode
                 </label>
 
-                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.batchMode ? 'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-300' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-purple-300'}`}>
+                <label className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.batchMode ? 'bg-purple-50 border-purple-300 text-purple-700 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300 shadow-sm' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-purple-300 hover:text-purple-600 dark:hover:border-purple-700 dark:hover:text-purple-400'}`}>
                   <input type="checkbox" name="batchMode" checked={inputs.batchMode} onChange={handleInputChange} className="hidden" />
-                  <Layers size={14} className={inputs.batchMode ? 'text-purple-600' : ''} />
+                  <Layers size={13} className={inputs.batchMode ? 'text-purple-500' : 'text-slate-400'} />
                   Batch Mode
                 </label>
 
-                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.summarizerMode ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-orange-300'}`}>
+                <label className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.summarizerMode ? 'bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-300 shadow-sm' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-orange-300 hover:text-orange-600 dark:hover:border-orange-700 dark:hover:text-orange-400'}`}>
                   <input type="checkbox" name="summarizerMode" checked={inputs.summarizerMode} onChange={handleInputChange} className="hidden" />
-                  <FileSearch size={14} className={inputs.summarizerMode ? 'text-orange-600' : ''} />
+                  <FileSearch size={13} className={inputs.summarizerMode ? 'text-orange-500' : 'text-slate-400'} />
                   Summarizer
                 </label>
 
-                <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.carouselMode ? 'bg-pink-50 border-pink-200 text-pink-700 dark:bg-pink-900/20 dark:border-pink-800 dark:text-pink-300' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-pink-300'}`}>
+                <label className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all select-none ${inputs.carouselMode ? 'bg-pink-50 border-pink-300 text-pink-700 dark:bg-pink-900/20 dark:border-pink-700 dark:text-pink-300 shadow-sm' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-pink-300 hover:text-pink-600 dark:hover:border-pink-700 dark:hover:text-pink-400'}`}>
                   <input type="checkbox" name="carouselMode" checked={inputs.carouselMode} onChange={handleInputChange} className="hidden" />
-                  <GalleryVerticalEnd size={14} className={inputs.carouselMode ? 'text-pink-600' : ''} />
+                  <GalleryVerticalEnd size={13} className={inputs.carouselMode ? 'text-pink-500' : 'text-slate-400'} />
                   Carousel
                 </label>
               </div>
@@ -595,7 +595,7 @@ export default function App() {
               {/* Core Inputs */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wider">
                     Content Format
                   </label>
                   <div className="relative">
@@ -618,7 +618,7 @@ export default function App() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
+                  <label className="flex items-center gap-1.5 text-xs font-bold mb-2 uppercase tracking-wider text-amber-600 dark:text-amber-500">
                     <ShieldAlert size={14} />
                     Risk Filter
                   </label>
@@ -645,8 +645,8 @@ export default function App() {
                 {/* Standard Text Inputs */}
                 {!inputs.imageMode && (
                   <>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                         {inputs.summarizerMode ? 'Summary Goal' : (inputs.batchMode ? 'Topic / Keywords' : 'Topic / Core Idea')}
                       </label>
                       {/* Batch Mode Slider */}
@@ -666,8 +666,8 @@ export default function App() {
                       )}
                       {/* Exam Mode Toggle if Summarizer */}
                       {inputs.summarizerMode && (
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                          <input type="checkbox" name="examSummarizerMode" checked={inputs.examSummarizerMode} onChange={handleInputChange} className="w-3.5 h-3.5 text-orange-600 rounded border-slate-300 focus:ring-orange-500" />
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" name="examSummarizerMode" checked={inputs.examSummarizerMode} onChange={handleInputChange} className="styled-check" />
                           <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">Exam Mode</span>
                         </label>
                       )}
@@ -680,12 +680,13 @@ export default function App() {
                       className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-none shadow-inner mb-4 ${inputs.summarizerMode ? 'h-16' : 'h-24'}`}
                     />
 
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <Shuffle size={14} className="text-indigo-500" />
-                        Specific Angle / Hook (Optional)
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                        <Shuffle size={13} className="text-indigo-400" />
+                        Angle / Hook
+                        <span className="normal-case font-normal text-slate-400 dark:text-slate-500">(optional)</span>
                       </label>
-                      <InfoTooltip text="Break repetitive cycles by defining a specific 'angle'. E.g., 'Controversial', 'Scientific Deep Dive', 'Personal Anecdote', or 'Myth-Busting'." />
+                      <InfoTooltip text="Break repetitive cycles by defining a specific 'angle'. E.g., 'Controversial', 'Scientific Deep Dive', 'Personal Anecdote', or 'Myth-Busting'." position="left" />
                     </div>
                     <input
                       type="text"
@@ -752,19 +753,19 @@ export default function App() {
 
                 {/* Context / RAG Input */}
                 <div className="mt-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <label className={`block text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${inputs.summarizerMode ? 'text-orange-600 dark:text-orange-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                      <BookOpen size={14} />
-                      {inputs.summarizerMode ? 'Source Text (Required)' : 'Medical Context (Optional)'}
+                  <div className="flex justify-between items-center mb-2 gap-2">
+                    <label className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider shrink-0 ${inputs.summarizerMode ? 'text-orange-600 dark:text-orange-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                      <BookOpen size={13} />
+                      {inputs.summarizerMode ? 'Source Text' : 'Context'}
                     </label>
-                    <div className="flex gap-3">
+                    <div className="flex gap-4 ml-auto">
                       <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" name="includeHashtags" checked={inputs.includeHashtags} onChange={handleInputChange} className="w-3.5 h-3.5 text-pink-500 rounded border-slate-300 focus:ring-pink-500" />
-                        <span className="text-[10px] font-bold text-slate-500 hover:text-pink-500 transition-colors uppercase">Hashtags</span>
+                        <input type="checkbox" name="includeHashtags" checked={inputs.includeHashtags} onChange={handleInputChange} className="styled-check" />
+                        <span className="text-[10px] font-bold text-slate-500 hover:text-pink-500 dark:hover:text-pink-400 transition-colors uppercase tracking-wide">Hashtags</span>
                       </label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" name="includeCitations" checked={inputs.includeCitations} onChange={handleInputChange} className="w-3.5 h-3.5 text-teal-600 rounded border-slate-300 focus:ring-teal-500" />
-                        <span className="text-[10px] font-bold text-slate-500 hover:text-teal-600 transition-colors uppercase">Citations</span>
+                        <input type="checkbox" name="includeCitations" checked={inputs.includeCitations} onChange={handleInputChange} className="styled-check" />
+                        <span className="text-[10px] font-bold text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition-colors uppercase tracking-wide">Citations</span>
                       </label>
                     </div>
                   </div>

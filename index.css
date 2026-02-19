@@ -2,27 +2,115 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Scrollbar */
+/* ============================================================
+   SCROLLBARS
+   ============================================================ */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9; 
+  background: transparent;
 }
 .dark ::-webkit-scrollbar-track {
-  background: #0f172a; 
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1; 
-  border-radius: 4px;
+  background: #cbd5e1;
+  border-radius: 99px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #334155; 
+  background: #334155;
+  border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8; 
+  background: #94a3b8;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #475569; 
+  background: #475569;
+}
+
+/* ============================================================
+   CUSTOM CHECKBOXES — premium styled
+   ============================================================ */
+input[type="checkbox"].styled-check {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 3px;
+  background-color: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.dark input[type="checkbox"].styled-check {
+  border-color: #475569;
+}
+input[type="checkbox"].styled-check:checked {
+  background-color: #0891b2;
+  border-color: #0891b2;
+}
+input[type="checkbox"].styled-check:checked::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0.5px;
+  width: 5px;
+  height: 8px;
+  border: 2px solid white;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+input[type="checkbox"].styled-check:hover:not(:checked) {
+  border-color: #06b6d4;
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 6s ease-in-out infinite;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+  animation: fade-in-up 0.25s ease-out both;
+}
+
+/* ============================================================
+   FORM FOCUS RINGS — consistent across elements
+   ============================================================ */
+textarea:focus,
+input[type="text"]:focus,
+input[type="email"]:focus,
+select:focus {
+  outline: none;
+}
+
+/* ============================================================
+   SELECT — remove default arrow, we render our own
+   ============================================================ */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

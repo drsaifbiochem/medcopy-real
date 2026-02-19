@@ -18,7 +18,7 @@ export const Header: React.FC = () => {
                 </span>
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide flex items-center gap-1">
-                Medical Intelligence Engine <span className="text-slate-300 dark:text-slate-600">•</span> v2.4 (Vision Enabled)
+                Medical Intelligence Engine <span className="text-slate-300 dark:text-slate-600">•</span> v2.6 (Persona AI)
               </p>
             </div>
           </div>
