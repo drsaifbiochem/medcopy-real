@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+import { GoogleGenAI } from '@google/genai';
 
 // ============================================
 // SHARED UTILITIES
@@ -62,119 +62,135 @@ WRITING STYLE:
 • AVOID: delve, embark, game-changer, unlock, groundbreaking, world where, navigate, etc.
 `;
 
-// ============================================
-// SERVERLESS HANDLER
-// ============================================
-
-module.exports = async (req, res) => {
-    // Add CORS headers for serverless
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: "Method Not Allowed" });
-    }
-
-    const { inputs } = req.body;
-    const availableKeys = loadAvailableKeys();
-
-    if (availableKeys.length === 0) {
-        return res.status(500).json({ error: "No Gemini API keys found in server environment variables." });
-    }
-
-    let lastError = null;
-    let currentKeyIndex = 0;
-
-    while (currentKeyIndex < availableKeys.length) {
-        const currentKey = availableKeys[currentKeyIndex];
-
-        try {
-            const genAI = new GoogleGenAI(currentKey.key);
-            const model = genAI.getGenerativeModel({
-                model: 'gemma-3-27b-it',
-                systemInstruction: SYSTEM_INSTRUCTION
-            });
-
-            let currentTopic = inputs.topic;
-            let distilledInsight = null;
-
-            // 1. Distillation
-            if (inputs.enableDistillation) {
-                const dResult = await model.generateContent(`RAW NOTES: "${inputs.topic}"\n\nDistill into ONE clear, opinionated medical insight. Output ONLY the insight.`);
-                distilledInsight = dResult.response.text().trim();
-                currentTopic = `INSIGHT: "${distilledInsight}"\n(Source: ${inputs.topic})`;
-            }
-
-            // 2. Main Logic
-            let result;
-            if (inputs.imageMode && inputs.image) {
-                const base64Data = inputs.image.split(',')[1];
-                const prompt = `VISION ANALYSIS: ${inputs.persona}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience}\n\n${ANTI_AI_STYLE}`;
-                result = await model.generateContent([
-                    prompt,
-                    { inlineData: { data: base64Data, mimeType: "image/jpeg" } }
-                ]);
-                return res.status(200).json({ content: result.response.text(), driftScore: 100, distilledInsight });
-            }
-
-            if (inputs.carouselMode) {
-                const prompt = `GENERATE INSTAGRAM CAROUSEL JSON (5-10 slides).\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience}\nSCHEMA: [{slideNumber, title, content, visualDescription}]\n\n${ANTI_AI_STYLE}`;
-                result = await model.generateContent(prompt);
-                const text = result.response.text();
-                const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
-                return res.status(200).json({ carouselOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
-            }
-
-            if (inputs.batchMode) {
-                const prompt = `GENERATE ${inputs.batchCount} UNIQUE VARIATIONS AS JSON ARRAY.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nFORMAT: ${inputs.format}\n\n${ANTI_AI_STYLE}`;
-                result = await model.generateContent(prompt);
-                const text = result.response.text();
-                const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
-                return res.status(200).json({ batchOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
-            }
-
-            if (inputs.format === 'Multi-Format Exploder') {
-                const prompt = `GENERATE MULTI-PLATFORM CONTENT JSON.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nPLATFORMS: linkedin, instagram, twitter, email\n\n${ANTI_AI_STYLE}`;
-                result = await model.generateContent(prompt);
-                const text = result.response.text();
-                const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
-                return res.status(200).json({ multiFormatOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
-            }
-
-            // Standard
-            const mainPrompt = `PERSONA: ${inputs.persona}\nFORMAT: ${inputs.format}\nTOPIC: ${currentTopic}\nCONTEXT: ${inputs.context}\nAUDIENCE: ${inputs.audience}\n\n${ANTI_AI_STYLE}`;
-            result = await model.generateContent(mainPrompt);
-            const draftContent = result.response.text();
-
-            const driftPrompt = `Evaluate persona alignment: "${inputs.persona}"\nCONTENT:\n${draftContent}\n\nReturn JSON: {score: 0-100, reasoning: string, finalContent: string}`;
-            const driftResult = await model.generateContent(driftPrompt);
-            const driftText = driftResult.response.text();
-            const driftMatch = driftText.match(/```json\s*([\s\S]*?)\s*```/) || [null, driftText];
-            const parsedDrift = JSON.parse(driftMatch[1].trim());
-
-            return res.status(200).json({
-                content: parsedDrift.finalContent || draftContent,
-                driftScore: parsedDrift.score,
-                driftReasoning: parsedDrift.reasoning,
-                distilledInsight
-            });
-
-        } catch (error) {
-            lastError = error;
-            if (isQuotaError(error)) {
-                currentKeyIndex++;
-                continue;
-            }
-            return res.status(500).json({ error: sanitizeError(error) });
-        }
-    }
-
-    res.status(429).json({ error: "All keys exhausted. Last error: " + (lastError?.message || "Quota") });
+// Vercel Config
+export const config = {
+    maxDuration: 60, // Increase timeout to 60s for Vision analysis
 };
+
+export default async function handler(req, res) {
+    try {
+        console.log(`[Vercel API] Incoming request: ${req.method} /api/generate`);
+
+        // Add CORS headers for serverless
+        res.setHeader('Access-Control-Allow-Credentials', true);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+        res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+        if (req.method === 'OPTIONS') {
+            res.status(200).end();
+            return;
+        }
+
+        if (req.method !== 'POST') {
+            return res.status(405).json({ error: "Method Not Allowed" });
+        }
+
+        const { inputs } = req.body;
+        if (!inputs) {
+            return res.status(400).json({ error: "Missing inputs in request body." });
+        }
+
+        const availableKeys = loadAvailableKeys();
+        if (availableKeys.length === 0) {
+            return res.status(500).json({ error: "No Gemini API keys found in server environment variables." });
+        }
+
+        let lastError = null;
+        let currentKeyIndex = 0;
+
+        while (currentKeyIndex < availableKeys.length) {
+            const currentKey = availableKeys[currentKeyIndex];
+
+            try {
+                const genAI = new GoogleGenAI(currentKey.key);
+                const model = genAI.getGenerativeModel({
+                    model: 'gemma-3-27b-it',
+                    systemInstruction: SYSTEM_INSTRUCTION
+                });
+
+                let currentTopic = inputs.topic || "";
+                let distilledInsight = null;
+
+                // 1. Distillation
+                if (inputs.enableDistillation && currentTopic) {
+                    const dResult = await model.generateContent(`RAW NOTES: "${currentTopic}"\n\nDistill into ONE clear, opinionated medical insight. Output ONLY the insight.`);
+                    distilledInsight = dResult.response.text().trim();
+                    currentTopic = `INSIGHT: "${distilledInsight}"\n(Source: ${inputs.topic})`;
+                }
+
+                // 2. Main Logic
+                let result;
+                if (inputs.imageMode && inputs.image) {
+                    const base64Data = inputs.image.split(',')[1];
+                    const prompt = `VISION ANALYSIS: ${inputs.persona || "Medical Assistant"}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience || "Layperson"}\n\n${ANTI_AI_STYLE}`;
+                    result = await model.generateContent([
+                        prompt,
+                        { inlineData: { data: base64Data, mimeType: "image/jpeg" } }
+                    ]);
+                    return res.status(200).json({ content: result.response.text(), driftScore: 100, distilledInsight });
+                }
+
+                if (inputs.carouselMode) {
+                    const prompt = `GENERATE INSTAGRAM CAROUSEL JSON (5-10 slides).\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience}\nSCHEMA: [{slideNumber, title, content, visualDescription}]\n\n${ANTI_AI_STYLE}`;
+                    result = await model.generateContent(prompt);
+                    const text = result.response.text();
+                    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
+                    return res.status(200).json({ carouselOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
+                }
+
+                if (inputs.batchMode) {
+                    const prompt = `GENERATE ${inputs.batchCount} UNIQUE VARIATIONS AS JSON ARRAY.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nFORMAT: ${inputs.format}\n\n${ANTI_AI_STYLE}`;
+                    result = await model.generateContent(prompt);
+                    const text = result.response.text();
+                    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
+                    return res.status(200).json({ batchOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
+                }
+
+                if (inputs.format === 'Multi-Format Exploder') {
+                    const prompt = `GENERATE MULTI-PLATFORM CONTENT JSON.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nPLATFORMS: linkedin, instagram, twitter, email\n\n${ANTI_AI_STYLE}`;
+                    result = await model.generateContent(prompt);
+                    const text = result.response.text();
+                    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
+                    return res.status(200).json({ multiFormatOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
+                }
+
+                // Standard
+                const mainPrompt = `PERSONA: ${inputs.persona}\nFORMAT: ${inputs.format}\nTOPIC: ${currentTopic}\nCONTEXT: ${inputs.context}\nAUDIENCE: ${inputs.audience}\n\n${ANTI_AI_STYLE}`;
+                result = await model.generateContent(mainPrompt);
+                const draftContent = result.response.text();
+
+                const driftPrompt = `Evaluate persona alignment: "${inputs.persona}"\nCONTENT:\n${draftContent}\n\nReturn JSON: {score: 0-100, reasoning: string, finalContent: string}`;
+                const driftResult = await model.generateContent(driftPrompt);
+                const driftText = driftResult.response.text();
+                const driftMatch = driftText.match(/```json\s*([\s\S]*?)\s*```/) || [null, driftText];
+                const parsedDrift = JSON.parse(driftMatch[1].trim());
+
+                return res.status(200).json({
+                    content: parsedDrift.finalContent || draftContent,
+                    driftScore: parsedDrift.score,
+                    driftReasoning: parsedDrift.reasoning,
+                    distilledInsight
+                });
+
+            } catch (error) {
+                lastError = error;
+                if (isQuotaError(error)) {
+                    currentKeyIndex++;
+                    continue;
+                }
+                console.error(`[Vercel API] Error with key ${currentKeyIndex + 1}:`, error);
+                return res.status(500).json({ error: sanitizeError(error) });
+            }
+        }
+
+        return res.status(429).json({ error: "All keys exhausted. Last error: " + (lastError?.message || "Quota") });
+
+    } catch (globalError) {
+        console.error("[Vercel API] CRITICAL UNHANDLED ERROR:", globalError);
+        return res.status(500).json({
+            error: "A critical server error occurred.",
+            details: sanitizeError(globalError)
+        });
+    }
+}
