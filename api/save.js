@@ -25,7 +25,7 @@ export default async function handler(req, res) {
             return res.status(405).json({ error: "Method Not Allowed" });
         }
 
-        const { data, accessToken } = req.body;
+        const { data, accessToken, payload } = req.body;
         const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
 
         if (!spreadsheetId) {
@@ -34,12 +34,15 @@ export default async function handler(req, res) {
 
         // 1. Try Apps Script Proxy first if configured
         if (process.env.GOOGLE_APPS_SCRIPT_URL) {
-            console.log("[Vercel API] Attempting Apps Script save...");
+            console.log("[Vercel API] Attempting Apps Script save (Background Mode)...");
             try {
+                // Background mode prefers the structured payload if available
+                const bodyToSend = payload || data;
+
                 const response = await fetch(process.env.GOOGLE_APPS_SCRIPT_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(bodyToSend)
                 });
                 if (response.ok) {
                     console.log("[Vercel API] Apps Script save successful.");

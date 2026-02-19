@@ -189,26 +189,44 @@ app.post('/api/generate', async (req, res) => {
 // ============================================
 // 2. Google Sheets Proxy Route
 app.post('/api/save', async (req, res) => {
-    const { data, accessToken } = req.body;
+    const { data, accessToken, payload } = req.body;
     const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
 
-    if (!spreadsheetId) return res.status(500).json({ error: "GOOGLE_SPREADSHEET_ID not configured on server." });
+    if (!spreadsheetId) {
+        console.error("[Local Proxy] GOOGLE_SPREADSHEET_ID missing from .env");
+        return res.status(500).json({ error: "GOOGLE_SPREADSHEET_ID not configured on server." });
+    }
 
-    // If using Apps Script fallback
+    // 1. Try Apps Script Proxy first if configured
     if (process.env.GOOGLE_APPS_SCRIPT_URL) {
+        console.log("[Local Proxy] Attempting Apps Script save (Background Mode)...");
         try {
+            const bodyToSend = payload || data;
             const response = await fetch(process.env.GOOGLE_APPS_SCRIPT_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
+                body: JSON.stringify(bodyToSend)
             });
-            return res.json({ success: response.ok });
+
+            if (response.ok) {
+                console.log("[Local Proxy] Apps Script save successful.");
+                return res.json({ success: true, method: 'apps-script' });
+            } else {
+                const errText = await response.text();
+                console.error(`[Local Proxy] Apps Script returned error: ${response.status} ${errText}`);
+            }
         } catch (e) {
-            return res.status(500).json({ error: "Apps Script proxy failed." });
+            console.error("[Local Proxy] Apps Script connection failed:", e.message);
         }
     }
 
-    // Direct Sheets API via OAuth token passed from frontend
+    // 2. Direct Sheets API via OAuth token
+    console.log("[Local Proxy] Attempting direct Sheets API save...");
+    if (!accessToken) {
+        console.warn("[Local Proxy] No access token and background saver failed.");
+        return res.status(401).json({ error: "Auth required - Background saver failed." });
+    }
+
     try {
         const response = await fetch(
             `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:append?valueInputOption=USER_ENTERED`,
@@ -221,8 +239,17 @@ app.post('/api/save', async (req, res) => {
                 body: JSON.stringify({ values: data }),
             }
         );
-        res.json({ success: response.ok });
+
+        if (response.ok) {
+            console.log("[Local Proxy] Direct Sheets API save successful.");
+            return res.json({ success: true, method: 'direct-api' });
+        } else {
+            const errText = await response.text();
+            console.error(`[Local Proxy] Direct Sheets API failed: ${response.status} ${errText}`);
+            return res.status(500).json({ error: "Sheets API failed", details: errText });
+        }
     } catch (error) {
+        console.error("[Local Proxy] Critical save failure:", error);
         res.status(500).json({ error: "Sheets API proxy failed." });
     }
 });

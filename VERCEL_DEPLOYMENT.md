@@ -17,8 +17,8 @@ Add the following secrets to your **Vercel Dashboard > Settings > Environment Va
 | `GEMINI_API_KEY_2` | Backup Key (Optional for rotation) |
 | `GEMINI_API_KEY_3` | Backup Key (Optional for rotation) |
 | `GOOGLE_SPREADSHEET_ID` | The ID of your target Google Sheet (Server-side) |
-| `GOOGLE_APPS_SCRIPT_URL` | **Recommended**: Deployment URL for background auto-saving (bypasses login) |
-| `GOOGLE_CLIENT_ID` | OAuth Client ID for optional user-driven Google Sheets authentication |
+| `GOOGLE_APPS_SCRIPT_URL` | **Required**: Deployment URL for background auto-saving (Zero-Config Frontend) |
+| `GOOGLE_CLIENT_ID` | OAuth Client ID (Optional, only for manual user-driven auth) |
 
 > [!IMPORTANT]
 > Do NOT prefix AI keys or Spreadsheet IDs with `VITE_`. Only the public `GOOGLE_CLIENT_ID` is exposed to the browser via the `define` block in `vite.config.ts`.
@@ -46,5 +46,5 @@ To test the serverless functions locally:
 - [x] **Routing**: API calls go to `/api/generate` and `/api/save`.
 - [x] **500 Errors**: If you encounter 500 errors after adding new files to `api/`, ensure they use `import` instead of `require`.
 - [x] **Instruction Errors**: If you see `systemInstruction is not enabled for models/...`, ensure you are using the **Prepend Prompt Pattern** in your `model.generateContent` calls.
-- [ ] **Background Save Failure**: If data isn't saving, check the `GOOGLE_APPS_SCRIPT_URL` in Vercel settings and verify the Apps Script is deployed as a "Web App" accessible to "Anyone".
-- [ ] **Logs**: Check Vercel Dashboard logs for detailed error tracebacks from `/api/save`.
+- [x] **Zero-Config Save**: Frontend should not prompt for IDs if `GOOGLE_APPS_SCRIPT_URL` is set in Vercel.
+- [x] **Background Logs**: Check Vercel Dashboard logs for `[Vercel API]` entries to confirm successful saves.

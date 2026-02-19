@@ -86,15 +86,32 @@ export const saveToSheet = async (
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         data: [values],
-        accessToken: accessToken
+        accessToken: accessToken,
+        // Added structured payload for the beckend Apps Script fallback
+        payload: {
+          persona: inputs.persona,
+          topic: inputs.topic,
+          format: finalFormat,
+          audience: inputs.audience,
+          driftScore: result.driftScore || 0,
+          content: finalContent
+        }
       })
     });
 
-    const resData = await response.json();
-    return resData.success === true;
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Sheets proxy returned ${response.status}: ${errText}`);
+    }
 
-  } catch (error) {
-    console.error("Save to Sheets via proxy failed", sanitizeError(error));
+    const resData = await response.json();
+    if (!resData.success) {
+      throw new Error(resData.error || "Server failed to save to sheets.");
+    }
+
+    return true;
+  } catch (error: any) {
+    console.error("Save to Sheets failed:", error);
     throw error;
   }
 };

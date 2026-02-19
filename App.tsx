@@ -93,12 +93,10 @@ export default function App() {
     }
   }, []);
 
-  // Auto-Save Effect
+  // Auto-Save Effect (Seamless background saving)
   useEffect(() => {
-    if (generatedResult && sheetConfig.spreadsheetId && sheetConfig.clientId) {
-      if (!isSheetSaving && !sheetSaveSuccess) {
-        handleSaveToSheet();
-      }
+    if (generatedResult && !isSheetSaving && !sheetSaveSuccess) {
+      handleSaveToSheet();
     }
   }, [generatedResult]);
 
@@ -309,27 +307,16 @@ export default function App() {
   };
 
   const handleSaveToSheet = async () => {
-    if (!generatedResult) return;
-    if (!sheetConfig.spreadsheetId || !sheetConfig.clientId) {
-      setIsSheetConfigOpen(true);
-      return;
-    }
-
     setIsSheetSaving(true);
     try {
-      const hasAppsScript = !!process.env.GOOGLE_APPS_SCRIPT_URL || true; // Note: Handled by proxy now
-
-      if (!hasAppsScript && !isAuthorized()) {
-        triggerAuth();
-        setIsSheetSaving(false);
-        return;
-      }
-
-      await saveToSheet(sheetConfig.spreadsheetId, inputs, generatedResult, activeTab);
+      // Seamless background save: We delegate all ID/Secrets check to the server proxy.
+      // The frontend no longer blocks if local sheetConfig is empty.
+      await saveToSheet(sheetConfig.spreadsheetId, inputs, generatedResult as GenerationResult, activeTab);
       setSheetSaveSuccess(true);
       setTimeout(() => setSheetSaveSuccess(false), 3000);
     } catch (err: any) {
-      setError("Failed to save to Google Sheets. Check console for details.");
+      console.error("Auto-save failed:", err);
+      // We don't show a blocking error to the user for auto-save, we just log it.
     } finally {
       setIsSheetSaving(false);
     }
