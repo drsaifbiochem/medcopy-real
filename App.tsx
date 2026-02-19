@@ -58,7 +58,8 @@ export default function App() {
     summarizerMode: false,
     examSummarizerMode: false,
     imageMode: false,
-    image: ''
+    image: '',
+    angle: ''
   });
 
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
@@ -352,7 +353,8 @@ export default function App() {
       summarizerMode: false,
       examSummarizerMode: false,
       imageMode: false,
-      image: ''
+      image: '',
+      angle: ''
     });
     setGeneratedResult(null);
     setSelectedPresetId(null);
@@ -677,7 +679,23 @@ export default function App() {
                       value={inputs.topic}
                       onChange={handleInputChange}
                       placeholder={inputs.summarizerMode ? "Describe goal..." : "What is this content about?"}
-                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-none shadow-inner ${inputs.summarizerMode ? 'h-16' : 'h-24'}`}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-none shadow-inner mb-4 ${inputs.summarizerMode ? 'h-16' : 'h-24'}`}
+                    />
+
+                    <div className="flex justify-between items-end mb-2">
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Shuffle size={14} className="text-indigo-500" />
+                        Specific Angle / Hook (Optional)
+                      </label>
+                      <InfoTooltip text="Break repetitive cycles by defining a specific 'angle'. E.g., 'Controversial', 'Scientific Deep Dive', 'Personal Anecdote', or 'Myth-Busting'." />
+                    </div>
+                    <input
+                      type="text"
+                      name="angle"
+                      value={inputs.angle || ''}
+                      onChange={handleInputChange}
+                      placeholder="e.g. Controversial, Patient-First, Scientific Deep Dive..."
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 mb-4"
                     />
                   </>
                 )}

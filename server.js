@@ -94,8 +94,10 @@ function ensureString(val) {
 const SYSTEM_INSTRUCTION = `You are MedCopy, a medically grounded content generation engine.
 Your job is to generate persona-driven medical or health-tech content that is accurate, credible, and publication-ready.
 1. Medical Accuracy Is Mandatory.
-2. Persona Fidelity is key.
-3. No AI fluff, buzzwords, or generic marketing sentences.`;
+2. Persona Fidelity is key: Adopt the voice, vocabulary, and perspective of the selected persona.
+3. No AI fluff, buzzwords, or generic marketing sentences.
+4. PRIORITY: If a TOPIC IS MISSING, generate a "High-Yield Health Hack" or "Clinical Pearl" relevant to your persona's field.
+5. FORMAT ADHERENCE: Strictly follow the requested format (LinkedIn, Instagram, etc.). If the persona's teaching style conflicts with the format, the FORMAT wins.`;
 
 const ANTI_AI_STYLE = `
 WRITING STYLE:
@@ -106,6 +108,24 @@ WRITING STYLE:
 • Address reader as "you".
 • AVOID: delve, embark, game-changer, unlock, groundbreaking, world where, navigate, etc.
 `;
+
+const CTA_VARIANTS = [
+    "Follow for more distilled health insights.",
+    "What has your experience been with this? Let's discuss below.",
+    "Save this post for your next clinical rotation.",
+    "Share this with a colleague or friend who needs to hear this today.",
+    "Drop a '❤️' if this resonated with you.",
+    "DM me if you want to see a deeper dive on this topic.",
+    "Tag someone who would find this helpful."
+];
+
+const DISCLAIMER_VARIANTS = [
+    "Educational purposes only. Not medical advice.",
+    "Always consult your own physician for health concerns.",
+    "Informational only. Clinical judgment should be individualized.",
+    "Based on current evidence-based guidelines as of 2024.",
+    "This is for knowledge sharing and does not create a doctor-patient relationship."
+];
 
 // ============================================
 // AI GENERATION ENDPOINT
@@ -133,22 +153,47 @@ app.post('/api/generate', async (req, res) => {
 
             const PREPEND_PROMPT = `${SYSTEM_INSTRUCTION}\n${ANTI_AI_STYLE}\n\n`;
 
-            let currentTopic = inputs.topic;
+            let currentTopic = inputs.topic || "GENERIC_HIGH_YIELD_INSIGHT";
+            let currentAngle = inputs.angle || "Most helpful clinical perspective";
             let distilledInsight = null;
 
             // 1. Optional Distillation
-            if (inputs.enableDistillation) {
+            if (inputs.enableDistillation && inputs.topic) {
                 const dResult = await model.generateContent(`${PREPEND_PROMPT}RAW NOTES: "${inputs.topic}"\n\nDistill into ONE clear, opinionated medical insight. Output ONLY the insight.`);
                 distilledInsight = dResult.response.text().trim();
-                currentTopic = `INSIGHT: "${distilledInsight}"\n(Source: ${inputs.topic})`;
+                currentTopic = `INSIGHT: "${distilledInsight}"\n(Source context: ${inputs.topic})`;
             }
 
             // 2. Generation Logic
+            const buildStructuredPrompt = (base) => {
+                const cta = CTA_VARIANTS[Math.floor(Math.random() * CTA_VARIANTS.length)];
+                const disclaimer = DISCLAIMER_VARIANTS[Math.floor(Math.random() * DISCLAIMER_VARIANTS.length)];
+
+                return `${PREPEND_PROMPT}
+### TASK: ${base}
+### IDENTITY/VOICE: 
+${inputs.persona}
+
+### TOPIC: 
+${currentTopic}
+
+### ANGLE/VARIATION SIGNAL: 
+${currentAngle}
+
+### AUDIENCE: 
+${inputs.audience || "Layperson"}
+
+### FINAL CONSTRAINTS:
+1. End with this CTA: "${cta}"
+2. Footer: "${disclaimer}"
+3. Format specifically for: ${inputs.format}`;
+            };
+
             let result;
 
             if (inputs.imageMode && inputs.image) {
                 const base64Data = inputs.image.split(',')[1];
-                const prompt = `${PREPEND_PROMPT}VISION ANALYSIS: ${inputs.persona}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience}`;
+                const prompt = buildStructuredPrompt("Perform a VISION ANALYSIS based on the provided image and topic.");
                 result = await model.generateContent([
                     prompt,
                     { inlineData: { data: base64Data, mimeType: "image/jpeg" } }
@@ -157,7 +202,7 @@ app.post('/api/generate', async (req, res) => {
             }
 
             if (inputs.carouselMode) {
-                const prompt = `${PREPEND_PROMPT}GENERATE INSTAGRAM CAROUSEL JSON (5-10 slides).\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience}\nSCHEMA: [{slideNumber, title, content, visualDescription}]`;
+                const prompt = buildStructuredPrompt("GENERATE INSTAGRAM CAROUSEL JSON (5-10 slides). Use the ANGLE provided for the hook of Slide 1. SCHEMA: [{slideNumber, title, content, visualDescription}]");
                 result = await model.generateContent(prompt);
                 const text = result.response.text();
                 const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
@@ -174,7 +219,8 @@ app.post('/api/generate', async (req, res) => {
             }
 
             if (inputs.batchMode) {
-                const prompt = `${PREPEND_PROMPT}GENERATE ${inputs.batchCount} UNIQUE VARIATIONS AS JSON ARRAY.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nFORMAT: ${inputs.format}`;
+                const prompt = buildStructuredPrompt(`GENERATE ${inputs.batchCount} UNIQUE VARIATIONS AS JSON ARRAY. 
+IMPORTANT: Each variation MUST strictly follow the ANGLE "${currentAngle}" but be phrased uniquely. No two variations should start or end with the same sentence.`);
                 result = await model.generateContent(prompt);
                 const text = result.response.text();
                 const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
@@ -186,7 +232,7 @@ app.post('/api/generate', async (req, res) => {
             }
 
             if (inputs.format === 'Multi-Format Exploder') {
-                const prompt = `${PREPEND_PROMPT}GENERATE MULTI-PLATFORM CONTENT JSON.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nPLATFORMS: linkedin, instagram, twitter, email`;
+                const prompt = buildStructuredPrompt("GENERATE MULTI-PLATFORM CONTENT JSON. PLATFORMS: linkedin, instagram, twitter, email. Ensure the ANGLE is woven into all platforms differently.");
                 result = await model.generateContent(prompt);
                 const text = result.response.text();
                 const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
@@ -200,11 +246,11 @@ app.post('/api/generate', async (req, res) => {
             }
 
             // Standard Content + Drift Detection
-            const mainPrompt = `${PREPEND_PROMPT}PERSONA: ${inputs.persona}\nFORMAT: ${inputs.format}\nTOPIC: ${currentTopic}\nCONTEXT: ${inputs.context}\nAUDIENCE: ${inputs.audience}`;
+            const mainPrompt = buildStructuredPrompt("Generate a single high-fidelity piece of content.");
             result = await model.generateContent(mainPrompt);
             const draftContent = result.response.text();
 
-            const driftPrompt = `${PREPEND_PROMPT}Evaluate persona alignment: "${inputs.persona}"\nCONTENT:\n${draftContent}\n\nReturn JSON: {score: 0-100, reasoning: string, finalContent: string}`;
+            const driftPrompt = `${PREPEND_PROMPT}Evaluate persona alignment: "${inputs.persona}"\nCONTENT:\n${draftContent}\n\nReturn JSON: {score: 0-100, reasoning: string, finalContent: string}. Ensure finalContent includes the requested CTA and Disclaimer.`;
             const driftResult = await model.generateContent(driftPrompt);
             const driftText = driftResult.response.text();
             const driftMatch = driftText.match(/```json\s*([\s\S]*?)\s*```/) || [null, driftText];

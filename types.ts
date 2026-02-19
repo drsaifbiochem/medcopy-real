@@ -14,6 +14,7 @@ export interface GenerationInputs {
   examSummarizerMode: boolean;
   image?: string;
   imageMode?: boolean;
+  angle?: string;
 }
 
 export interface Preset {
