@@ -221,6 +221,8 @@ medcopy-real/
 ├── services/
 │   ├── geminiService.ts         # AI generation logic
 │   └── sheetService.ts          # Google Sheets integration
+├── utils/
+│   └── security.ts              # Log redaction & sanitization utilities
 ├── GOOGLE_SHEETS_INTEGRATION.md # Sheets setup guide
 ├── VISION.md                    # Vision Mode guide
 ├── GEMMA_3_IMAGE_CONFIG.md      # Image processing specs

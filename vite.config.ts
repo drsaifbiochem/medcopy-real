@@ -8,23 +8,19 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+          secure: false
+        }
+      }
     },
     plugins: [react()],
+    // Security: Do NOT define process.env keys here as it bundles them into the client.
+    // The server-side proxy (server.js) will handle these via process.env directly.
     define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY_2': JSON.stringify(env.GEMINI_API_KEY_2),
-      'process.env.GEMINI_API_KEY_3': JSON.stringify(env.GEMINI_API_KEY_3),
-      'process.env.GEMINI_API_KEY_4': JSON.stringify(env.GEMINI_API_KEY_4),
-      'process.env.GEMINI_API_KEY_5': JSON.stringify(env.GEMINI_API_KEY_5),
-      'process.env.MISTRAL_API_KEY': JSON.stringify(env.MISTRAL_API_KEY),
-      'process.env.MISTRAL_API_KEY_2': JSON.stringify(env.MISTRAL_API_KEY_2),
-      'process.env.MISTRAL_API_KEY_3': JSON.stringify(env.MISTRAL_API_KEY_3),
-      'process.env.MISTRAL_API_KEY_4': JSON.stringify(env.MISTRAL_API_KEY_4),
-      'process.env.MISTRAL_API_KEY_5': JSON.stringify(env.MISTRAL_API_KEY_5),
-      'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID),
-      'process.env.GOOGLE_SPREADSHEET_ID': JSON.stringify(env.GOOGLE_SPREADSHEET_ID),
-      'process.env.GOOGLE_APPS_SCRIPT_URL': JSON.stringify(env.GOOGLE_APPS_SCRIPT_URL)
+      'process.env.DUMMY': '"safe"'
     },
     resolve: {
       alias: {
