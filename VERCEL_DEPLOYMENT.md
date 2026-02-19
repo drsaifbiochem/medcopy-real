@@ -26,7 +26,8 @@ Add the following secrets to your **Vercel Dashboard > Settings > Environment Va
 ## 3. Architecture Details
 - **Module System**: This project uses **ES Modules** (`"type": "module"` in `package.json`).
 - **Function Structure**: Functions in the `api/` directory must use `export default` syntax.
-- **SDK Requirement**: Use `@google/generative-ai` (Stable) instead of `@google/genai` (Preview) to avoid method-not-found errors.
+- **SDK Requirement**: Use `@google/generative-ai` (Stable) instead of `@google/genai` (Preview).
+- **Prompt Pattern**: Use the **Prepend Prompt Pattern** (joining instructions to the prompt) instead of the `systemInstruction` parameter to ensure compatibility with models like `gemma-3-27b-it`.
 - **Runtime**: Node.js 18+ is recommended.
 
 ## 4. Performance & Timeouts
@@ -44,4 +45,5 @@ To test the serverless functions locally:
 - [x] **Key Isolation**: No API keys are visible in the browser's Network tab.
 - [x] **Routing**: API calls go to `/api/generate` and `/api/save`.
 - [ ] **500 Errors**: If you encounter 500 errors after adding new files to `api/`, ensure they use `import` instead of `require`.
+- [ ] **Instruction Errors**: If you see `systemInstruction is not enabled for models/...`, ensure you are using the **Prepend Prompt Pattern** in your `model.generateContent` calls.
 - [ ] **Logs**: Check Vercel Dashboard logs for detailed error tracebacks.

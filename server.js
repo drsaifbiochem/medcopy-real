@@ -101,16 +101,17 @@ app.post('/api/generate', async (req, res) => {
         try {
             const genAI = new GoogleGenerativeAI(currentKey.key);
             const model = genAI.getGenerativeModel({
-                model: 'gemma-3-27b-it',
-                systemInstruction: SYSTEM_INSTRUCTION
+                model: 'gemma-3-27b-it'
             });
+
+            const PREPEND_PROMPT = `${SYSTEM_INSTRUCTION}\n${ANTI_AI_STYLE}\n\n`;
 
             let currentTopic = inputs.topic;
             let distilledInsight = null;
 
             // 1. Optional Distillation
             if (inputs.enableDistillation) {
-                const dResult = await model.generateContent(`RAW NOTES: "${inputs.topic}"\n\nDistill into ONE clear, opinionated medical insight. Output ONLY the insight.`);
+                const dResult = await model.generateContent(`${PREPEND_PROMPT}RAW NOTES: "${inputs.topic}"\n\nDistill into ONE clear, opinionated medical insight. Output ONLY the insight.`);
                 distilledInsight = dResult.response.text().trim();
                 currentTopic = `INSIGHT: "${distilledInsight}"\n(Source: ${inputs.topic})`;
             }
@@ -120,7 +121,7 @@ app.post('/api/generate', async (req, res) => {
 
             if (inputs.imageMode && inputs.image) {
                 const base64Data = inputs.image.split(',')[1];
-                const prompt = `VISION ANALYSIS: ${inputs.persona}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience}\n\n${ANTI_AI_STYLE}`;
+                const prompt = `${PREPEND_PROMPT}VISION ANALYSIS: ${inputs.persona}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience}`;
                 result = await model.generateContent([
                     prompt,
                     { inlineData: { data: base64Data, mimeType: "image/jpeg" } }
@@ -129,7 +130,7 @@ app.post('/api/generate', async (req, res) => {
             }
 
             if (inputs.carouselMode) {
-                const prompt = `GENERATE INSTAGRAM CAROUSEL JSON (5-10 slides).\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience}\nSCHEMA: [{slideNumber, title, content, visualDescription}]\n\n${ANTI_AI_STYLE}`;
+                const prompt = `${PREPEND_PROMPT}GENERATE INSTAGRAM CAROUSEL JSON (5-10 slides).\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nAUDIENCE: ${inputs.audience}\nSCHEMA: [{slideNumber, title, content, visualDescription}]`;
                 result = await model.generateContent(prompt);
                 const text = result.response.text();
                 const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
@@ -137,7 +138,7 @@ app.post('/api/generate', async (req, res) => {
             }
 
             if (inputs.batchMode) {
-                const prompt = `GENERATE ${inputs.batchCount} UNIQUE VARIATIONS AS JSON ARRAY.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nFORMAT: ${inputs.format}\n\n${ANTI_AI_STYLE}`;
+                const prompt = `${PREPEND_PROMPT}GENERATE ${inputs.batchCount} UNIQUE VARIATIONS AS JSON ARRAY.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nFORMAT: ${inputs.format}`;
                 result = await model.generateContent(prompt);
                 const text = result.response.text();
                 const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
@@ -145,7 +146,7 @@ app.post('/api/generate', async (req, res) => {
             }
 
             if (inputs.format === 'Multi-Format Exploder') {
-                const prompt = `GENERATE MULTI-PLATFORM CONTENT JSON.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nPLATFORMS: linkedin, instagram, twitter, email\n\n${ANTI_AI_STYLE}`;
+                const prompt = `${PREPEND_PROMPT}GENERATE MULTI-PLATFORM CONTENT JSON.\nPERSONA: ${inputs.persona}\nTOPIC: ${currentTopic}\nPLATFORMS: linkedin, instagram, twitter, email`;
                 result = await model.generateContent(prompt);
                 const text = result.response.text();
                 const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
@@ -153,11 +154,11 @@ app.post('/api/generate', async (req, res) => {
             }
 
             // Standard Content + Drift Detection
-            const mainPrompt = `PERSONA: ${inputs.persona}\nFORMAT: ${inputs.format}\nTOPIC: ${currentTopic}\nCONTEXT: ${inputs.context}\nAUDIENCE: ${inputs.audience}\n\n${ANTI_AI_STYLE}`;
+            const mainPrompt = `${PREPEND_PROMPT}PERSONA: ${inputs.persona}\nFORMAT: ${inputs.format}\nTOPIC: ${currentTopic}\nCONTEXT: ${inputs.context}\nAUDIENCE: ${inputs.audience}`;
             result = await model.generateContent(mainPrompt);
             const draftContent = result.response.text();
 
-            const driftPrompt = `Evaluate persona alignment: "${inputs.persona}"\nCONTENT:\n${draftContent}\n\nReturn JSON: {score: 0-100, reasoning: string, finalContent: string}`;
+            const driftPrompt = `${PREPEND_PROMPT}Evaluate persona alignment: "${inputs.persona}"\nCONTENT:\n${draftContent}\n\nReturn JSON: {score: 0-100, reasoning: string, finalContent: string}`;
             const driftResult = await model.generateContent(driftPrompt);
             const driftText = driftResult.response.text();
             const driftMatch = driftText.match(/```json\s*([\s\S]*?)\s*```/) || [null, driftText];
