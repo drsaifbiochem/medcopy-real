@@ -30,13 +30,12 @@
 - **Config Loading**: Automatically loads Sheet ID and Client ID from `.env` file
 - **Debug Logging**: Console logs show auto-save trigger conditions
 
-### 5. Vision Feature & UI Overhaul (2026-02-18/19)
-- **Added**: Vision Mode for analyzing medical images using `gemma-3-27b-it`.
-- **Optimization**: "Ultra-Fast Mode" (512px resizing) implemented in `App.tsx` for performance.
-- **Reliability**: Exponential backoff and 503 retry logic added to `geminiService.ts`.
-- **UI**: Complete Glassmorphism redesign (Header, PresetSelector, Cards).
-- **Styling**: Premium Markdown rendering with Cyan accents and Medical Notes via `ReactMarkdown`.
-- **Docs**: Added `VISION.md`, `GEMMA_3_IMAGE_CONFIG.md`, and `OUTPUT_FORMATTING.md`.
+### 6. Backend Proxy & Vercel Migration (2026-02-19)
+- **Hardening**: Moved all API keys and Sheets secrets to server-side/serverless logic.
+- **Proxy**: Implemented an Express proxy server (`server.js`) for local development.
+- **Vercel**: Migrated backend logic to individual serverless functions in `api/` directory.
+- **Security**: Prevented API key exposure in client-side bundles by refactoring `vite.config.ts`.
+- **Docs**: Created `VERCEL_DEPLOYMENT.md` and `SECURITY_AUDIT.md`.
 
 ---
 
@@ -498,25 +497,21 @@ MISTRAL_API_KEY_5=your_fifth_mistral_ai_api_key_here
 
 ### Google Sheets Integration
 ```env
-# OAuth 2.0 Client ID
+# OAuth 2.0 Client ID (Exposed to frontend)
 GOOGLE_CLIENT_ID=your_google_oauth_client_id_here
 
-# Target Spreadsheet ID
+# Target Spreadsheet ID (SERVER-SIDE ONLY)
 GOOGLE_SPREADSHEET_ID=your_spreadsheet_id_here
 
-# Optional: Apps Script Web App URL
+# Optional: Apps Script Web App URL (SERVER-SIDE ONLY)
 GOOGLE_APPS_SCRIPT_URL=your_apps_script_url_here
 ```
 
-**Setup Guide:** See `GOOGLE_SHEETS_INTEGRATION.md`
-
-**⚠️ Important:** These environment variables must be exposed in `vite.config.ts` to work in the browser:
+**⚠️ Important:** Only the public `GOOGLE_CLIENT_ID` is exposed in `vite.config.ts`:
 ```typescript
-'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID),
-'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID),
-'process.env.GOOGLE_SPREADSHEET_ID': JSON.stringify(env.GOOGLE_SPREADSHEET_ID),
-'process.env.GOOGLE_APPS_SCRIPT_URL': JSON.stringify(env.GOOGLE_APPS_SCRIPT_URL)
+'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID)
 ```
+AI keys and Spreadsheet IDs are kept strictly on the server/serverless layer.
 
 ### Auto-Save Feature (Apps Script)
 - If `GOOGLE_APPS_SCRIPT_URL` is set, the "Save to Sheets" button will use the Apps Script Web App for a seamless server-side save (bypassing the client-side OAuth popup for frequent saves).
@@ -548,18 +543,18 @@ GOOGLE_APPS_SCRIPT_URL=your_apps_script_url_here
 
 ## 8. API Routes & Security
 
-### Current API Routes
+#### External API Integrations (Routed via Proxy)
 
-This application is **client-side only** with no backend API routes. All API calls are made directly from the browser to external services.
-
-#### External API Integrations
-
-| Service | Purpose | Security Level | Authentication |
+| Service | Purpose | Security Level | Implementation |
 |---------|---------|----------------|----------------|
-| **Google GenAI API** | AI content generation (Gemma 3 27B IT) | 🔒 **Medium** | API Key (client-side) |
-| **Mistral AI API** | Fallback AI provider (Non-Vision only) | 🔒 **Medium** | API Key (client-side) |
-| **Google Sheets API** | Save generated content | 🔒 **High** | OAuth 2.0 |
-| **Google Apps Script** | Advanced Sheets integration (optional) | 🔒 **Medium** | Web App URL |
+| **Google GenAI API** | AI content generation | 🔒 **High** | Routed via `/api/generate` |
+| **Google Sheets API** | Store data | 🔒 **High** | Routed via `/api/save` |
+| **Google Identity** | Frontend Auth | 🔒 **Medium** | Client-side (Public ID) |
+
+### Security Architecture
+1. **Backend Proxy**: AI keys are never sent to the browser.
+2. **Path Sanitization**: Error messages are redacted to prevent leakage.
+3. **Vercel Serverless**: Logic is decoupled into edge-ready functions.
 
 ### Security Considerations
 
@@ -760,14 +755,17 @@ medcopy-real/
 # Install dependencies
 npm install
 
-# Start development server
+# Start development (Vite only - Frontend only)
 npm run dev
+
+# Start development (Vercel Serverless Mimic - LOCAL)
+npm run vercel-dev
+
+# Start development (Legacy Proxy + Vite)
+npm run dev:proxy
 
 # Build for production
 npm run build
-
-# Preview production build
-npm run preview
 ```
 
 ---
