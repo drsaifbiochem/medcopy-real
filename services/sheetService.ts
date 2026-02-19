@@ -81,6 +81,7 @@ export const saveToSheet = async (
   ];
 
   try {
+    console.log("[SheetService] Preparing proxy request...", { spreadsheetId: _spreadsheetId, format: finalFormat });
     const response = await fetch("/api/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,24 +95,29 @@ export const saveToSheet = async (
           format: finalFormat,
           audience: inputs.audience,
           driftScore: result.driftScore || 0,
+          driftReasoning: result.driftReasoning || '',
+          distilledInsight: result.distilledInsight || '',
           content: finalContent
         }
       })
     });
 
+    console.log("[SheetService] Proxy response received:", response.status);
     if (!response.ok) {
       const errText = await response.text();
+      console.error("[SheetService] Proxy returned error text:", errText);
       throw new Error(`Sheets proxy returned ${response.status}: ${errText}`);
     }
 
     const resData = await response.json();
+    console.log("[SheetService] Proxy JSON parsed:", resData);
     if (!resData.success) {
       throw new Error(resData.error || "Server failed to save to sheets.");
     }
 
     return true;
   } catch (error: any) {
-    console.error("Save to Sheets failed:", error);
+    console.error("[SheetService] SAVE ERROR:", error);
     throw error;
   }
 };

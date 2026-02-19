@@ -30,16 +30,30 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    
     const row = [
       new Date(),
       data.persona || '',
       data.topic || '',
       data.format || '',
       data.audience || '',
-      data.driftScore || 0,
-      data.content || ''
+      data.driftScore || '',
+      data.content || '',
+      data.distilledInsight || '',
+      data.driftReasoning || ''
     ];
+    
     sheet.appendRow(row);
+    
+    // Optional: Color code by drift score
+    const lastRow = sheet.getLastRow();
+    if (data.driftScore) {
+      const scoreCell = sheet.getRange(lastRow, 6);
+      if (data.driftScore >= 90) scoreCell.setBackground('#d4edda');
+      else if (data.driftScore >= 70) scoreCell.setBackground('#fff3cd');
+      else scoreCell.setBackground('#f8d7da');
+    }
+
     return ContentService.createTextOutput(JSON.stringify({ success: true }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {

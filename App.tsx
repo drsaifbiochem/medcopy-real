@@ -79,6 +79,12 @@ export default function App() {
 
   // State for Multi-Format tabs
   const [activeTab, setActiveTab] = useState<'linkedin' | 'instagram' | 'email' | 'twitter'>('linkedin');
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  const addLog = (msg: string) => {
+    console.log(`[MedCopy UI] ${msg}`);
+    setDebugLogs(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${msg}`]);
+  };
 
   // Initialize Sheet Auth
   useEffect(() => {
@@ -88,6 +94,7 @@ export default function App() {
 
     if (savedClientId && savedSheetId) {
       setSheetConfig({ clientId: savedClientId, spreadsheetId: savedSheetId });
+      addLog("Google Sheet config loaded. Initializing auth...");
       // Small timeout to ensure google script loaded
       setTimeout(() => initGoogleAuth(savedClientId), 1000);
     }
@@ -96,6 +103,7 @@ export default function App() {
   // Auto-Save Effect (Seamless background saving)
   useEffect(() => {
     if (generatedResult && !isSheetSaving && !sheetSaveSuccess) {
+      addLog("Auto-save triggered for new result.");
       handleSaveToSheet();
     }
   }, [generatedResult]);
@@ -157,6 +165,7 @@ export default function App() {
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
         setError("Image size too large (Max 5MB). The system will attempt to compress it.");
+        addLog("Image size > 5MB, attempting compression.");
       } else {
         setError(null);
       }
@@ -191,6 +200,7 @@ export default function App() {
 
           // Compress to JPEG with 0.8 quality
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          addLog(`Image compressed to ${width}x${height} and loaded.`);
 
           setInputs(prev => ({
             ...prev,
@@ -205,39 +215,47 @@ export default function App() {
   const clearImage = () => {
     setInputs(prev => ({ ...prev, image: '' }));
     if (fileInputRef.current) fileInputRef.current.value = '';
+    addLog("Image cleared.");
   };
 
   const handlePresetSelect = (preset: Preset) => {
     setInputs(prev => ({ ...prev, persona: preset.personaPrompt }));
     setSelectedPresetId(preset.id);
+    addLog(`Preset selected: ${preset.id}`);
   };
 
   const handleGenerate = async () => {
     setError(null);
     setSheetSaveSuccess(false);
+    addLog("Starting content generation...");
 
     // Validation Logic
     if (inputs.imageMode) {
       if (!inputs.image) {
         setError("Please upload an image for analysis.");
+        addLog("Validation failed: No image for Vision Mode.");
         return;
       }
       if (!inputs.persona.trim()) {
         setError("Please select a Persona for the analysis.");
+        addLog("Validation failed: No persona for Vision Mode.");
         return;
       }
     } else if (inputs.summarizerMode) {
       if (!inputs.context.trim()) {
         setError("Please provide Source Text to summarize.");
+        addLog("Validation failed: No source text for Summarizer Mode.");
         return;
       }
       if (!inputs.persona.trim()) {
         setError("Please select a Persona for the summary.");
+        addLog("Validation failed: No persona for Summarizer Mode.");
         return;
       }
     } else {
       if (!inputs.persona.trim() || !inputs.topic.trim()) {
         setError("Please provide at least a Persona and a Topic.");
+        addLog("Validation failed: Missing persona or topic.");
         return;
       }
     }
@@ -249,8 +267,10 @@ export default function App() {
       const result = await generateMedicalCopy(inputs);
       setGeneratedResult(result);
       setActiveTab('linkedin');
+      addLog("Content generation successful!");
     } catch (err: any) {
       setError(err.message || "Failed to generate content.");
+      addLog(`Content generation failed: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -270,6 +290,7 @@ export default function App() {
     navigator.clipboard.writeText(textToCopy);
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2000);
+    addLog("Content copied to clipboard.");
   };
 
   const handleClear = () => {
@@ -297,6 +318,7 @@ export default function App() {
     setIsPromptOpen(false);
     setSheetSaveSuccess(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    addLog("All inputs and results cleared.");
   };
 
   const handleSheetConfigSave = () => {
@@ -304,19 +326,28 @@ export default function App() {
     localStorage.setItem('medcopy_google_sheet_id', sheetConfig.spreadsheetId);
     initGoogleAuth(sheetConfig.clientId);
     setIsSheetConfigOpen(false);
+    addLog("Google Sheet config saved.");
   };
 
   const handleSaveToSheet = async () => {
+    addLog("handleSaveToSheet starting...");
     setIsSheetSaving(true);
     try {
       // Seamless background save: We delegate all ID/Secrets check to the server proxy.
       // The frontend no longer blocks if local sheetConfig is empty.
-      await saveToSheet(sheetConfig.spreadsheetId, inputs, generatedResult as GenerationResult, activeTab);
-      setSheetSaveSuccess(true);
-      setTimeout(() => setSheetSaveSuccess(false), 3000);
+      addLog("Sending request to Sheets proxy...");
+      const success = await saveToSheet(sheetConfig.spreadsheetId, inputs, generatedResult as GenerationResult, activeTab);
+
+      if (success) {
+        addLog("✅ AUTO-SAVE SUCCESSFUL!");
+        setSheetSaveSuccess(true);
+        setTimeout(() => setSheetSaveSuccess(false), 3000);
+      } else {
+        addLog("❌ AUTO-SAVE FAILED (Proxy returned false)");
+      }
     } catch (err: any) {
+      addLog(`❌ CRITICAL SAVE ERROR: ${err.message}`);
       console.error("Auto-save failed:", err);
-      // We don't show a blocking error to the user for auto-save, we just log it.
     } finally {
       setIsSheetSaving(false);
     }
@@ -893,6 +924,16 @@ export default function App() {
           </div>
         </div>
       </main>
+      {/* Debug Logs Footer */}
+      {debugLogs.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-black/80 text-green-400 p-2 text-xs font-mono z-50 max-h-32 overflow-y-auto border-t border-green-500/30">
+          <div className="flex justify-between items-center mb-1">
+            <span className="font-bold uppercase tracking-widest text-[#00f2fe]">Internal Debug Stream</span>
+            <button onClick={() => setDebugLogs([])} className="hover:text-white">Clear</button>
+          </div>
+          {debugLogs.map((log, i) => <div key={i}>{log}</div>)}
+        </div>
+      )}
     </div>
   );
 }
