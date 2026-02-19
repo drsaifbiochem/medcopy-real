@@ -98,11 +98,9 @@ export default function App() {
   };
   // State for Multi-Format tabs
   const [activeTab, setActiveTab] = useState<'linkedin' | 'instagram' | 'email' | 'twitter'>('linkedin');
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
   const addLog = (msg: string) => {
     console.log(`[MedCopy UI] ${msg}`);
-    setDebugLogs(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${msg}`]);
   };
 
   const ensureString = (val: any): string => {
@@ -985,16 +983,6 @@ export default function App() {
           </div>
         </div>
       </main>
-      {/* Debug Logs Footer */}
-      {debugLogs.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-black/80 text-green-400 p-2 text-xs font-mono z-50 max-h-32 overflow-y-auto border-t border-green-500/30">
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-bold uppercase tracking-widest text-[#00f2fe]">Internal Debug Stream</span>
-            <button onClick={() => setDebugLogs([])} className="hover:text-white">Clear</button>
-          </div>
-          {debugLogs.map((log, i) => <div key={i}>{log}</div>)}
-        </div>
-      )}
     </div>
   );
 }
