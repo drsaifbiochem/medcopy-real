@@ -48,3 +48,5 @@ To test the serverless functions locally:
 - [x] **Instruction Errors**: If you see `systemInstruction is not enabled for models/...`, ensure you are using the **Prepend Prompt Pattern** in your `model.generateContent` calls.
 - [x] **Zero-Config Save**: Frontend should not prompt for IDs if `GOOGLE_APPS_SCRIPT_URL` is set in Vercel.
 - [x] **Background Logs**: Check Vercel Dashboard logs for `[Vercel API]` entries to confirm successful saves.
+- [x] **Runtime Guard**: The API now automatically flattens structured AI responses to prevent React Error #31 crashes.
+- [x] **Internal Debug Stream**: Use the new black footer in the UI for real-time deployment and save diagnostics.

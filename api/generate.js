@@ -167,8 +167,18 @@ export default async function handler(req, res) {
                 const driftMatch = driftText.match(/```json\s*([\s\S]*?)\s*```/) || [null, driftText];
                 const parsedDrift = JSON.parse(driftMatch[1].trim());
 
+                let finalContent = parsedDrift.finalContent || draftContent;
+
+                // CRITICAL: React Error #31 Fix - Ensure content is a string
+                if (typeof finalContent === 'object' && finalContent !== null) {
+                    console.log("[Vercel API] Detected object in finalContent, flattening...");
+                    finalContent = Object.entries(finalContent)
+                        .map(([key, val]) => `${key.toUpperCase()}: ${val}`)
+                        .join('\n\n');
+                }
+
                 return res.status(200).json({
-                    content: parsedDrift.finalContent || draftContent,
+                    content: finalContent,
                     driftScore: parsedDrift.score,
                     driftReasoning: parsedDrift.reasoning,
                     distilledInsight

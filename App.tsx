@@ -86,6 +86,16 @@ export default function App() {
     setDebugLogs(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${msg}`]);
   };
 
+  const ensureString = (val: any): string => {
+    if (typeof val === 'string') return val;
+    if (val === null || val === undefined) return '';
+    try {
+      return JSON.stringify(val, null, 2);
+    } catch (e) {
+      return String(val);
+    }
+  };
+
   // Initialize Sheet Auth
   useEffect(() => {
     // Load saved sheet config from localStorage OR Environment Variables
@@ -901,7 +911,7 @@ export default function App() {
                                 code: ({ node, ...props }) => <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sm font-mono text-pink-600 dark:text-pink-400" {...props} />,
                               }}
                             >
-                              {generatedResult.multiFormatOutput ? generatedResult.multiFormatOutput[activeTab] : generatedResult.content}
+                              {ensureString(generatedResult.multiFormatOutput ? (generatedResult.multiFormatOutput as any)[activeTab] : generatedResult.content)}
                             </ReactMarkdown>
                           </div>
                         )
