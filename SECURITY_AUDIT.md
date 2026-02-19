@@ -69,4 +69,7 @@ While relatively safe in a single-page app, if an XSS vulnerability exists elsew
 Standard error logging might accidentally include the API key or raw prompt context in the console output.
 
 ### Remediation
-- **Implement Log Redaction**: Sanitize error objects before logging. (Scheduled for implementation).
+- **[REMEDIATED] [V2.5.1] Redaction Utility**
+- **Status**: ✅ FIXED (Implemented Feb 19, 2026)
+- **Description**: Added `sanitizeError` utility and `logRedaction` patterns to `api/` and `server.js`.
+- **Functionality**: Automatically redacts patterns matching `AIza...` and other credential fingerprints before they are logged to stdout or the Vercel console.

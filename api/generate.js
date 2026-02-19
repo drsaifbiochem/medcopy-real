@@ -45,6 +45,26 @@ function sanitizeError(error) {
     }
 }
 
+/**
+ * Deeply ensures that the target value is a string.
+ * If given an object (that isn't an array we're processing), it flattens it.
+ */
+function ensureString(val) {
+    if (typeof val === 'string') return val;
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object') {
+        try {
+            // If it's a simple object, join keys and values
+            return Object.entries(val)
+                .map(([k, v]) => `${k.toUpperCase()}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                .join('\n\n');
+        } catch (e) {
+            return String(val);
+        }
+    }
+    return String(val);
+}
+
 const SYSTEM_INSTRUCTION = `You are MedCopy, a medically grounded content generation engine.
 Your job is to generate persona-driven medical or health-tech content that is accurate, credible, and publication-ready.
 1. Medical Accuracy Is Mandatory.
@@ -137,7 +157,19 @@ export default async function handler(req, res) {
                     result = await model.generateContent(prompt);
                     const text = result.response.text();
                     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
-                    return res.status(200).json({ carouselOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
+                    let carouselOutput = JSON.parse(jsonMatch[1].trim());
+
+                    // Deep Hardening
+                    if (Array.isArray(carouselOutput)) {
+                        carouselOutput = carouselOutput.map(slide => ({
+                            ...slide,
+                            title: ensureString(slide.title),
+                            content: ensureString(slide.content),
+                            visualDescription: ensureString(slide.visualDescription)
+                        }));
+                    }
+
+                    return res.status(200).json({ carouselOutput, driftScore: 100, distilledInsight });
                 }
 
                 if (inputs.batchMode) {
@@ -145,7 +177,14 @@ export default async function handler(req, res) {
                     result = await model.generateContent(prompt);
                     const text = result.response.text();
                     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
-                    return res.status(200).json({ batchOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
+                    let batchOutput = JSON.parse(jsonMatch[1].trim());
+
+                    // Deep Hardening
+                    if (Array.isArray(batchOutput)) {
+                        batchOutput = batchOutput.map(item => ensureString(item));
+                    }
+
+                    return res.status(200).json({ batchOutput, driftScore: 100, distilledInsight });
                 }
 
                 if (inputs.format === 'Multi-Format Exploder') {
@@ -153,7 +192,16 @@ export default async function handler(req, res) {
                     result = await model.generateContent(prompt);
                     const text = result.response.text();
                     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
-                    return res.status(200).json({ multiFormatOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
+                    let multiFormatOutput = JSON.parse(jsonMatch[1].trim());
+
+                    // Deep Hardening
+                    if (typeof multiFormatOutput === 'object' && multiFormatOutput !== null) {
+                        Object.keys(multiFormatOutput).forEach(key => {
+                            multiFormatOutput[key] = ensureString(multiFormatOutput[key]);
+                        });
+                    }
+
+                    return res.status(200).json({ multiFormatOutput, driftScore: 100, distilledInsight });
                 }
 
                 // Standard
@@ -167,21 +215,14 @@ export default async function handler(req, res) {
                 const driftMatch = driftText.match(/```json\s*([\s\S]*?)\s*```/) || [null, driftText];
                 const parsedDrift = JSON.parse(driftMatch[1].trim());
 
-                let finalContent = parsedDrift.finalContent || draftContent;
-
-                // CRITICAL: React Error #31 Fix - Ensure content is a string
-                if (typeof finalContent === 'object' && finalContent !== null) {
-                    console.log("[Vercel API] Detected object in finalContent, flattening...");
-                    finalContent = Object.entries(finalContent)
-                        .map(([key, val]) => `${key.toUpperCase()}: ${val}`)
-                        .join('\n\n');
-                }
+                let finalContent = ensureString(parsedDrift.finalContent || draftContent);
+                let reasoning = ensureString(parsedDrift.reasoning);
 
                 return res.status(200).json({
                     content: finalContent,
-                    driftScore: parsedDrift.score,
-                    driftReasoning: parsedDrift.reasoning,
-                    distilledInsight
+                    driftScore: parsedDrift.score || 0,
+                    driftReasoning: reasoning,
+                    distilledInsight: ensureString(distilledInsight)
                 });
 
             } catch (error) {

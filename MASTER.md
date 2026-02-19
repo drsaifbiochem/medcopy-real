@@ -44,6 +44,12 @@
 - **Fallback**: The backend proxy (`api/save.js`) now prioritizes background saving via `GOOGLE_APPS_SCRIPT_URL`.
 - **UX**: One-click save button reflects real-time save status.
 
+### 8. Deep Hardening (Error #31) (2026-02-19)
+- **Problem**: React crashes (Error #31) when AI returns structured objects (e.g., `{title, post}`) instead of strings.
+- **Solution**: Implemented a recursive `ensureString` utility on both backend (`api/generate.js`) and frontend (`App.tsx`).
+- **Leniency**: AI output is now automatically flattened into readable text before rendering, ensuring a crash-proof UI.
+- **Monitoring**: 🛡️ icons in the Internal Debug Stream track detection and correction events.
+
 ---
 
 ## Table of Contents

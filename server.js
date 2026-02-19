@@ -59,6 +59,25 @@ function sanitizeError(error) {
     }
 }
 
+/**
+ * Deeply ensures that the target value is a string.
+ * If given an object (that isn't an array we're processing), it flattens it.
+ */
+function ensureString(val) {
+    if (typeof val === 'string') return val;
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object') {
+        try {
+            return Object.entries(val)
+                .map(([k, v]) => `${k.toUpperCase()}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                .join('\n\n');
+        } catch (e) {
+            return String(val);
+        }
+    }
+    return String(val);
+}
+
 // ============================================
 // PROMPT TEMPLATES (MIGRATED FROM SERVICE)
 // ============================================
@@ -134,7 +153,16 @@ app.post('/api/generate', async (req, res) => {
                 result = await model.generateContent(prompt);
                 const text = result.response.text();
                 const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
-                return res.json({ carouselOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
+                let carouselOutput = JSON.parse(jsonMatch[1].trim());
+                if (Array.isArray(carouselOutput)) {
+                    carouselOutput = carouselOutput.map(slide => ({
+                        ...slide,
+                        title: ensureString(slide.title),
+                        content: ensureString(slide.content),
+                        visualDescription: ensureString(slide.visualDescription)
+                    }));
+                }
+                return res.json({ carouselOutput, driftScore: 100, distilledInsight });
             }
 
             if (inputs.batchMode) {
@@ -142,7 +170,11 @@ app.post('/api/generate', async (req, res) => {
                 result = await model.generateContent(prompt);
                 const text = result.response.text();
                 const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
-                return res.json({ batchOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
+                let batchOutput = JSON.parse(jsonMatch[1].trim());
+                if (Array.isArray(batchOutput)) {
+                    batchOutput = batchOutput.map(item => ensureString(item));
+                }
+                return res.json({ batchOutput, driftScore: 100, distilledInsight });
             }
 
             if (inputs.format === 'Multi-Format Exploder') {
@@ -150,7 +182,13 @@ app.post('/api/generate', async (req, res) => {
                 result = await model.generateContent(prompt);
                 const text = result.response.text();
                 const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
-                return res.json({ multiFormatOutput: JSON.parse(jsonMatch[1].trim()), driftScore: 100, distilledInsight });
+                let multiFormatOutput = JSON.parse(jsonMatch[1].trim());
+                if (typeof multiFormatOutput === 'object' && multiFormatOutput !== null) {
+                    Object.keys(multiFormatOutput).forEach(key => {
+                        multiFormatOutput[key] = ensureString(multiFormatOutput[key]);
+                    });
+                }
+                return res.json({ multiFormatOutput, driftScore: 100, distilledInsight });
             }
 
             // Standard Content + Drift Detection
@@ -164,11 +202,14 @@ app.post('/api/generate', async (req, res) => {
             const driftMatch = driftText.match(/```json\s*([\s\S]*?)\s*```/) || [null, driftText];
             const parsedDrift = JSON.parse(driftMatch[1].trim());
 
+            let finalContent = ensureString(parsedDrift.finalContent || draftContent);
+            let reasoning = ensureString(parsedDrift.reasoning);
+
             return res.json({
-                content: parsedDrift.finalContent || draftContent,
-                driftScore: parsedDrift.score,
-                driftReasoning: parsedDrift.reasoning,
-                distilledInsight
+                content: finalContent,
+                driftScore: parsedDrift.score || 0,
+                driftReasoning: reasoning,
+                distilledInsight: ensureString(distilledInsight)
             });
 
         } catch (error) {

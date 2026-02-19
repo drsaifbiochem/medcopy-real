@@ -89,6 +89,9 @@ export default function App() {
   const ensureString = (val: any): string => {
     if (typeof val === 'string') return val;
     if (val === null || val === undefined) return '';
+    if (typeof val === 'object') {
+      addLog(`🛡️ Object detected in content! Stringifying to prevent crash...`);
+    }
     try {
       return JSON.stringify(val, null, 2);
     } catch (e) {
@@ -844,7 +847,7 @@ export default function App() {
                         <div className="pl-8">
                           <p className="text-[10px] font-bold text-indigo-400 dark:text-indigo-400 uppercase tracking-widest mb-2">Core Insight</p>
                           <p className="text-indigo-900 dark:text-indigo-200 font-serif text-lg leading-relaxed italic">
-                            "{generatedResult.distilledInsight}"
+                            "{ensureString(generatedResult.distilledInsight)}"
                           </p>
                         </div>
                       </div>
@@ -864,7 +867,7 @@ export default function App() {
                                   <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded">Var {idx + 1}</span>
                                   <button onClick={() => handleCopy(post)} className="text-slate-400 hover:text-purple-500"><Copy size={14} /></button>
                                 </div>
-                                <div className="whitespace-pre-wrap font-sans text-slate-800 dark:text-slate-200">{post}</div>
+                                <div className="whitespace-pre-wrap font-sans text-slate-800 dark:text-slate-200">{ensureString(post)}</div>
                               </li>
                             ))}
                           </ul>
@@ -876,13 +879,13 @@ export default function App() {
                                   <span className="font-bold text-pink-700 dark:text-pink-400 text-xs uppercase tracking-widest">Slide {slide.slideNumber}</span>
                                 </div>
                                 <div className="p-6">
-                                  <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-3">{slide.title}</h4>
-                                  <div className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 mb-6">{slide.content}</div>
+                                  <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-3">{ensureString(slide.title)}</h4>
+                                  <div className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 mb-6">{ensureString(slide.content)}</div>
                                   <div className="bg-slate-50 dark:bg-black/20 rounded-lg p-4 border border-slate-100 dark:border-slate-800 flex gap-3">
                                     <div className="mt-1 text-slate-400"><ImageIcon size={16} /></div>
                                     <div>
                                       <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Visual Directive</span>
-                                      <p className="text-xs text-slate-500 dark:text-slate-400 italic">{slide.visualDescription}</p>
+                                      <p className="text-xs text-slate-500 dark:text-slate-400 italic">{ensureString(slide.visualDescription)}</p>
                                     </div>
                                   </div>
                                 </div>
