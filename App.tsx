@@ -80,12 +80,8 @@ export default function App() {
   // State for Multi-Format tabs
   const [activeTab, setActiveTab] = useState<'linkedin' | 'instagram' | 'email' | 'twitter'>('linkedin');
 
-  // Initialize API Key checking & Sheet Auth
+  // Initialize Sheet Auth
   useEffect(() => {
-    if (!process.env.API_KEY) {
-      setError("API Key not found. Please verify environment configuration.");
-    }
-
     // Load saved sheet config from localStorage OR Environment Variables
     const savedClientId = localStorage.getItem('medcopy_google_client_id') || process.env.GOOGLE_CLIENT_ID || '';
     const savedSheetId = localStorage.getItem('medcopy_google_sheet_id') || process.env.GOOGLE_SPREADSHEET_ID || '';
@@ -321,7 +317,7 @@ export default function App() {
 
     setIsSheetSaving(true);
     try {
-      const hasAppsScript = !!process.env.GOOGLE_APPS_SCRIPT_URL;
+      const hasAppsScript = !!process.env.GOOGLE_APPS_SCRIPT_URL || true; // Note: Handled by proxy now
 
       if (!hasAppsScript && !isAuthorized()) {
         triggerAuth();

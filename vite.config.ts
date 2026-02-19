@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
     // Security: Do NOT define process.env keys here as it bundles them into the client.
     // The server-side proxy (server.js) will handle these via process.env directly.
     define: {
+      'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID),
       'process.env.DUMMY': '"safe"'
     },
     resolve: {
