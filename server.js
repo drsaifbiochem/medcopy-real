@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const path = require('path');
 
 // Load environment variables
@@ -99,7 +99,7 @@ app.post('/api/generate', async (req, res) => {
         const currentKey = availableKeys[currentKeyIndex];
 
         try {
-            const genAI = new GoogleGenAI(currentKey.key);
+            const genAI = new GoogleGenerativeAI(currentKey.key);
             const model = genAI.getGenerativeModel({
                 model: 'gemma-3-27b-it',
                 systemInstruction: SYSTEM_INSTRUCTION

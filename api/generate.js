@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // ============================================
 // SHARED UTILITIES
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
             const currentKey = availableKeys[currentKeyIndex];
 
             try {
-                const genAI = new GoogleGenAI(currentKey.key);
+                const genAI = new GoogleGenerativeAI(currentKey.key);
                 const model = genAI.getGenerativeModel({
                     model: 'gemma-3-27b-it',
                     systemInstruction: SYSTEM_INSTRUCTION

@@ -11,7 +11,7 @@
     "vercel-dev": "vercel dev"
   },
   "dependencies": {
-    "@google/genai": "^1.42.0",
+    "@google/generative-ai": "^0.21.0",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",

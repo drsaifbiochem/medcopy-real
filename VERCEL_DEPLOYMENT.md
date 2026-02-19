@@ -26,6 +26,7 @@ Add the following secrets to your **Vercel Dashboard > Settings > Environment Va
 ## 3. Architecture Details
 - **Module System**: This project uses **ES Modules** (`"type": "module"` in `package.json`).
 - **Function Structure**: Functions in the `api/` directory must use `export default` syntax.
+- **SDK Requirement**: Use `@google/generative-ai` (Stable) instead of `@google/genai` (Preview) to avoid method-not-found errors.
 - **Runtime**: Node.js 18+ is recommended.
 
 ## 4. Performance & Timeouts
