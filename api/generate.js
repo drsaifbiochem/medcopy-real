@@ -52,11 +52,19 @@ function sanitizeError(error) {
 function ensureString(val) {
     if (typeof val === 'string') return val;
     if (val === null || val === undefined) return '';
-    if (typeof val === 'object') {
+    if (typeof val === 'object' && !Array.isArray(val)) {
         try {
-            // If it's a simple object, join keys and values
+            // Smarter flattening: detect title/post or title/content
+            const title = val.title || val.header || val.headline || "";
+            const body = val.post || val.content || val.body || val.text || "";
+
+            if (title && body) {
+                return `## ${title}\n\n${body}`;
+            }
+
+            // Fallback: join other entries nicely
             return Object.entries(val)
-                .map(([k, v]) => `${k.toUpperCase()}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                .map(([k, v]) => `**${k.toUpperCase()}**: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
                 .join('\n\n');
         } catch (e) {
             return String(val);
@@ -78,7 +86,6 @@ WRITING STYLE:
 • Active voice.
 • Practical, actionable insights.
 • Address reader as "you".
-• NO bolding (**), italics (*), or em-dashes (—).
 • AVOID: delve, embark, game-changer, unlock, groundbreaking, world where, navigate, etc.
 `;
 

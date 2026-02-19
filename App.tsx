@@ -77,6 +77,24 @@ export default function App() {
   const [isSheetSaving, setIsSheetSaving] = useState(false);
   const [sheetSaveSuccess, setSheetSaveSuccess] = useState(false);
 
+  // Common Markdown components for premium styling
+  const markdownComponents = {
+    h1: ({ node, ...props }: any) => <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-4 border-b border-slate-200 dark:border-slate-700 pb-2" {...props} />,
+    h2: ({ node, ...props }: any) => <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-6 mb-3 flex items-center gap-2" {...props} />,
+    h3: ({ node, ...props }: any) => <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mt-4 mb-2" {...props} />,
+    p: ({ node, ...props }: any) => <p className="mb-4 text-slate-600 dark:text-slate-300 leading-relaxed" {...props} />,
+    ul: ({ node, ...props }: any) => <ul className="space-y-2 mb-4" {...props} />,
+    li: ({ node, ...props }: any) => (
+      <li className="flex gap-2 items-start text-slate-600 dark:text-slate-300">
+        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
+        <span>{props.children}</span>
+      </li>
+    ),
+    strong: ({ node, ...props }: any) => <strong className="font-bold text-cyan-700 dark:text-cyan-400" {...props} />,
+    blockquote: ({ node, ...props }: any) => (
+      <blockquote className="border-l-4 border-cyan-500 bg-cyan-50/50 dark:bg-cyan-900/10 p-4 my-6 italic text-slate-700 dark:text-slate-300" {...props} />
+    )
+  };
   // State for Multi-Format tabs
   const [activeTab, setActiveTab] = useState<'linkedin' | 'instagram' | 'email' | 'twitter'>('linkedin');
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
@@ -89,14 +107,26 @@ export default function App() {
   const ensureString = (val: any): string => {
     if (typeof val === 'string') return val;
     if (val === null || val === undefined) return '';
-    if (typeof val === 'object') {
+    if (typeof val === 'object' && !Array.isArray(val)) {
       addLog(`🛡️ Object detected in content! Stringifying to prevent crash...`);
+      try {
+        // Smarter flattening: detect title/post or title/content
+        const title = val.title || val.header || val.headline || "";
+        const body = val.post || val.content || val.body || val.text || "";
+
+        if (title && body) {
+          return `## ${title}\n\n${body}`;
+        }
+
+        // Fallback: join other entries nicely
+        return Object.entries(val)
+          .map(([k, v]) => `**${k.toUpperCase()}**: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+          .join('\n\n');
+      } catch (e) {
+        return JSON.stringify(val, null, 2);
+      }
     }
-    try {
-      return JSON.stringify(val, null, 2);
-    } catch (e) {
-      return String(val);
-    }
+    return String(val);
   };
 
   // Initialize Sheet Auth
@@ -383,21 +413,30 @@ export default function App() {
       { id: 'email', label: 'Email', icon: <Mail size={14} /> },
     ] as const;
 
+    const currentContent = ensureString(generatedResult.multiFormatOutput[activeTab as keyof typeof generatedResult.multiFormatOutput]);
+
     return (
-      <div className="flex border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
-              ? 'border-cyan-500 text-cyan-700 dark:text-cyan-300 bg-cyan-50/50 dark:bg-cyan-900/20'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-              }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+      <div className="bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden mb-8 shadow-sm">
+        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === tab.id
+                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-white dark:bg-slate-800'
+                : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="p-8 prose prose-indigo dark:prose-invert max-w-none">
+          <ReactMarkdown components={markdownComponents}>
+            {currentContent}
+          </ReactMarkdown>
+        </div>
       </div>
     );
   };
@@ -867,7 +906,11 @@ export default function App() {
                                   <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded">Var {idx + 1}</span>
                                   <button onClick={() => handleCopy(post)} className="text-slate-400 hover:text-purple-500"><Copy size={14} /></button>
                                 </div>
-                                <div className="whitespace-pre-wrap font-sans text-slate-800 dark:text-slate-200">{ensureString(post)}</div>
+                                <div className="prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed prose-p:my-2">
+                                  <ReactMarkdown components={markdownComponents}>
+                                    {ensureString(post)}
+                                  </ReactMarkdown>
+                                </div>
                               </li>
                             ))}
                           </ul>
@@ -880,7 +923,11 @@ export default function App() {
                                 </div>
                                 <div className="p-6">
                                   <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-3">{ensureString(slide.title)}</h4>
-                                  <div className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 mb-6">{ensureString(slide.content)}</div>
+                                  <div className="prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed mb-6">
+                                    <ReactMarkdown components={markdownComponents}>
+                                      {ensureString(slide.content)}
+                                    </ReactMarkdown>
+                                  </div>
                                   <div className="bg-slate-50 dark:bg-black/20 rounded-lg p-4 border border-slate-100 dark:border-slate-800 flex gap-3">
                                     <div className="mt-1 text-slate-400"><ImageIcon size={16} /></div>
                                     <div>
@@ -892,29 +939,12 @@ export default function App() {
                               </div>
                             ))}
                           </div>
+                        ) : generatedResult.multiFormatOutput ? (
+                          null // Content already rendered inside renderMultiFormatTabs() above
                         ) : (
                           <div className="prose prose-slate dark:prose-invert max-w-none bg-white dark:bg-slate-800/30 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
-                            <ReactMarkdown
-                              components={{
-                                h1: ({ node, ...props }) => <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-4 border-b border-slate-200 dark:border-slate-700 pb-2" {...props} />,
-                                h2: ({ node, ...props }) => <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-6 mb-3 flex items-center gap-2" {...props} />,
-                                h3: ({ node, ...props }) => <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mt-4 mb-2" {...props} />,
-                                p: ({ node, ...props }) => <p className="mb-4 text-slate-600 dark:text-slate-300 leading-relaxed" {...props} />,
-                                ul: ({ node, ...props }) => <ul className="space-y-2 mb-4" {...props} />,
-                                li: ({ node, ...props }) => (
-                                  <li className="flex gap-2 items-start text-slate-600 dark:text-slate-300">
-                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
-                                    <span>{props.children}</span>
-                                  </li>
-                                ),
-                                strong: ({ node, ...props }) => <strong className="font-bold text-cyan-700 dark:text-cyan-400" {...props} />,
-                                blockquote: ({ node, ...props }) => (
-                                  <blockquote className="border-l-4 border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20 p-4 rounded-r-lg italic text-slate-700 dark:text-slate-300 my-4" {...props} />
-                                ),
-                                code: ({ node, ...props }) => <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sm font-mono text-pink-600 dark:text-pink-400" {...props} />,
-                              }}
-                            >
-                              {ensureString(generatedResult.multiFormatOutput ? (generatedResult.multiFormatOutput as any)[activeTab] : generatedResult.content)}
+                            <ReactMarkdown components={markdownComponents}>
+                              {ensureString(generatedResult.content)}
                             </ReactMarkdown>
                           </div>
                         )
