@@ -12,7 +12,7 @@ export const generateMedicalCopy = async (inputs: GenerationInputs): Promise<Gen
   try {
     console.log(`[MedCopy Client] Generating content via secure proxy... Mode: ${inputs.imageMode ? 'Vision' : 'Text'}`);
 
-    const response = await fetch("/api/ai/generate", {
+    const response = await fetch("/api/generate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

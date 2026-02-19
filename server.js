@@ -83,8 +83,8 @@ WRITING STYLE:
 // ============================================
 // AI GENERATION ENDPOINT
 // ============================================
-
-app.post('/api/ai/generate', async (req, res) => {
+// 1. AI Generation Route
+app.post('/api/generate', async (req, res) => {
     const { inputs } = req.body;
     const availableKeys = loadAvailableKeys();
 
@@ -186,8 +186,8 @@ app.post('/api/ai/generate', async (req, res) => {
 // ============================================
 // GOOGLE SHEETS PROXY ENDPOINT
 // ============================================
-
-app.post('/api/sheets/save', async (req, res) => {
+// 2. Google Sheets Proxy Route
+app.post('/api/save', async (req, res) => {
     const { data, accessToken } = req.body;
     const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
 
