@@ -1,6 +1,6 @@
 # MASTER.md - MedCopy Quick Configuration Guide
 
-> **Last Updated:** 2026-02-05 (Tailwind v3 Local, Apps Script Auto-Save, Carousel Fix)  
+> **Last Updated:** 2026-02-18/19 (v2.4: Vision Mode, 512px Resizing, Cyan Styling)  
 > **Purpose:** Quick reference for modifying UI, backend, prompts, and configuration without breaking functionality
 
 ---
@@ -728,12 +728,12 @@ function isQuotaError(error: any): boolean {
 ## 📁 File Structure Reference
 
 ```
-medcopy-supercopy-alt/
+medcopy-real/
 ├── .env.example                 # Environment variable template
 ├── .env.local                   # Your actual environment variables (gitignored)
 ├── index.html                   # HTML entry point, Tailwind config, fonts
 ├── index.tsx                    # React entry point
-├── App.tsx                      # Main application component (889 lines)
+├── App.tsx                      # Main application component
 ├── types.ts                     # TypeScript interfaces
 ├── vite.config.ts               # Build configuration, env variable exposure
 ├── package.json                 # Dependencies
@@ -744,6 +744,9 @@ medcopy-supercopy-alt/
 │   ├── geminiService.ts         # AI generation logic, multi-provider fallback
 │   └── sheetService.ts          # Google Sheets integration
 ├── GOOGLE_SHEETS_INTEGRATION.md # Sheets setup guide
+├── VISION.md                    # Vision Mode & Multimodal guide
+├── GEMMA_3_IMAGE_CONFIG.md      # Image processing specs
+├── OUTPUT_FORMATTING.md         # Premium styling guide
 └── README.md                    # Project documentation
 ```
 
