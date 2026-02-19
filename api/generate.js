@@ -82,13 +82,29 @@ Your job is to generate persona-driven medical or health-tech content that is ac
 5. FORMAT ADHERENCE: Strictly follow the requested format (LinkedIn, Instagram, etc.). If the persona's teaching style conflicts with the format, the FORMAT wins.`;
 
 const ANTI_AI_STYLE = `
-WRITING STYLE:
-• Use clear, simple language.
-• Short, impactful sentences.
-• Active voice.
-• Practical, actionable insights.
-• Address reader as "you".
-• AVOID: delve, embark, game-changer, unlock, groundbreaking, world where, navigate, etc.
+FOLLOW THIS WRITING STYLE:
+• SHOULD use clear, simple language.
+• SHOULD be spartan and informative.
+• SHOULD use short, impactful sentences.
+• SHOULD use active voice; avoid passive voice.
+• SHOULD focus on practical, actionable insights.
+• SHOULD use bullet point lists in social media posts.
+• SHOULD use data and examples to support claims when possible.
+• SHOULD use "you" and "your" to directly address the reader.
+• AVOID using em dashes (—) anywhere in your response. Use only commas, periods, or other standard punctuation. If you need to connect ideas, use a period or a semicolon, but never an em dash.
+• AVOID constructions like "…not just this, but also this".
+• AVOID metaphors and clichés.
+• AVOID generalizations.
+• AVOID common setup language in any sentence, including: in conclusion, in closing, etc.
+• AVOID output warnings or notes, just the output requested.
+• AVOID unnecessary adjectives and adverbs.
+• AVOID staccato stop start sentences.
+• AVOID rhetorical questions.
+• AVOID semicolons.
+• AVOID complex markdown (use simple headers/lists only).
+• AVOID hashtags (unless part of the requested format).
+• AVOID these words:
+"can, may, just, that, very, really, literally, actually, certainly, probably, basically, could, maybe, delve, embark, enlightening, esteemed, shed light, craft, crafting, imagine, realm, game-changer, unlock, discover, skyrocket, abyss, not alone, in a world where, revolutionize, disruptive, utilize, utilizing, dive deep, tapestry, illuminate, unveil, pivotal, intricate, elucidate, hence, furthermore, realm, however, harness, exciting, groundbreaking, cutting-edge, remarkable, it remains to be seen, glimpse into, navigating, landscape, stark, testament, in summary, in conclusion, moreover, boost, skyrocketing, opened up, powerful, inquiries, ever-evolving"
 `;
 
 const CTA_VARIANTS = [
