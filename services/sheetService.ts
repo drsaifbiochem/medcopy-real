@@ -50,10 +50,8 @@ export const saveToSheet = async (
   activeFormat?: string
 ): Promise<boolean> => {
 
-  if (!accessToken && !process.env.GOOGLE_APPS_SCRIPT_URL) {
-    triggerAuth();
-    return false;
-  }
+  // No local check for accessToken here. 
+  // We send the request to the proxy; the proxy will use Apps Script fallback if the token is missing.
 
   const timestamp = new Date().toLocaleString();
   let finalContent = "";

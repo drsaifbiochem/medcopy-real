@@ -35,7 +35,14 @@
 - **Proxy**: Implemented an Express proxy server (`server.js`) for local development.
 - **Vercel**: Migrated backend logic to individual serverless functions in `api/` directory.
 - **Security**: Prevented API key exposure in client-side bundles by refactoring `vite.config.ts`.
-- **Docs**: Created `VERCEL_DEPLOYMENT.md` and `SECURITY_AUDIT.md`.
+- **SDK Update**: Switched to `@google/generative-ai` (Stable) for better reliability.
+- **Model Compatibility**: Implemented "Prepend Prompt Pattern" to support Gemma-3 without `systemInstruction` errors.
+
+### 7. Seamless Auto-Save (2026-02-19)
+- **Feature**: Results now save in the background automatically without requiring a Google login.
+- **Fix**: Removed frontend block that prevented saves when OAuth wasn't active.
+- **Fallback**: The backend proxy (`api/save.js`) now prioritizes background saving via `GOOGLE_APPS_SCRIPT_URL`.
+- **UX**: One-click save button reflects real-time save status.
 
 ---
 
@@ -503,7 +510,7 @@ GOOGLE_CLIENT_ID=your_google_oauth_client_id_here
 # Target Spreadsheet ID (SERVER-SIDE ONLY)
 GOOGLE_SPREADSHEET_ID=your_spreadsheet_id_here
 
-# Optional: Apps Script Web App URL (SERVER-SIDE ONLY)
+# Recommended: Apps Script Web App URL (SERVER-SIDE ONLY)
 GOOGLE_APPS_SCRIPT_URL=your_apps_script_url_here
 ```
 
@@ -514,8 +521,8 @@ GOOGLE_APPS_SCRIPT_URL=your_apps_script_url_here
 AI keys and Spreadsheet IDs are kept strictly on the server/serverless layer.
 
 ### Auto-Save Feature (Apps Script)
-- If `GOOGLE_APPS_SCRIPT_URL` is set, the "Save to Sheets" button will use the Apps Script Web App for a seamless server-side save (bypassing the client-side OAuth popup for frequent saves).
-- If not set, it falls back to the direct Google Sheets API (requires OAuth popup).
+- If `GOOGLE_APPS_SCRIPT_URL` is set, the system will **automatically** save every generation in the background. No user login is required for this to work.
+- If not set, it falls back to the direct Google Sheets API (requires OAuth popup and user login).
 
 **Save to Sheets Button:**
 - Available in all modes: Standard, Batch, Multi-Format, and Carousel
@@ -723,27 +730,30 @@ function isQuotaError(error: any): boolean {
 ## 📁 File Structure Reference
 
 ```
-medcopy-real/
 ├── .env.example                 # Environment variable template
 ├── .env.local                   # Your actual environment variables (gitignored)
 ├── index.html                   # HTML entry point, Tailwind config, fonts
 ├── index.tsx                    # React entry point
 ├── App.tsx                      # Main application component
+├── server.js                    # Local Express proxy server
 ├── types.ts                     # TypeScript interfaces
-├── vite.config.ts               # Build configuration, env variable exposure
+├── vite.config.ts               # Build configuration
 ├── package.json                 # Dependencies
+├── api/                         # Vercel Serverless Functions
+│   ├── generate.js              # AI Content Proxy
+│   └── save.js                  # Sheets Integration Proxy
 ├── components/
 │   ├── Header.tsx               # App header with branding
 │   └── PresetSelector.tsx       # Persona dropdown with 8 presets
 ├── services/
-│   ├── geminiService.ts         # AI generation logic, multi-provider fallback
+│   ├── geminiService.ts         # AI generation logic
 │   └── sheetService.ts          # Google Sheets integration
 ├── utils/
-│   └── security.ts              # Log redaction & sanitization utilities
+│   └── security.ts              # Log redaction utilities
+├── VERCEL_DEPLOYMENT.md         # Deployment instructions
+├── SECURITY_AUDIT.md            # Security findings
 ├── GOOGLE_SHEETS_INTEGRATION.md # Sheets setup guide
-├── VISION.md                    # Vision Mode & Multimodal guide
-├── GEMMA_3_IMAGE_CONFIG.md      # Image processing specs
-├── OUTPUT_FORMATTING.md         # Premium styling guide
+├── VISION.md                    # Vision Mode guide
 └── README.md                    # Project documentation
 ```
 

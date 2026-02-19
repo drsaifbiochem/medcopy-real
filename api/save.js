@@ -34,6 +34,7 @@ export default async function handler(req, res) {
 
         // 1. Try Apps Script Proxy first if configured
         if (process.env.GOOGLE_APPS_SCRIPT_URL) {
+            console.log("[Vercel API] Attempting Apps Script save...");
             try {
                 const response = await fetch(process.env.GOOGLE_APPS_SCRIPT_URL, {
                     method: "POST",
@@ -41,16 +42,25 @@ export default async function handler(req, res) {
                     body: JSON.stringify(data)
                 });
                 if (response.ok) {
+                    console.log("[Vercel API] Apps Script save successful.");
                     return res.status(200).json({ success: true, method: 'apps-script' });
+                } else {
+                    const errorText = await response.text();
+                    console.error(`[Vercel API] Apps Script returned error: ${response.status} ${errorText}`);
                 }
             } catch (e) {
-                console.warn("[Vercel API] Apps Script proxy failed, falling back to direct API.");
+                console.error("[Vercel API] Apps Script connection failed:", e.message);
             }
         }
 
         // 2. Direct Sheets API via OAuth token
+        console.log("[Vercel API] Attempting direct Sheets API save...");
         if (!accessToken) {
-            return res.status(401).json({ error: "No access token provided for direct Sheets API save." });
+            console.warn("[Vercel API] No access token provided and Apps Script failed/not configured.");
+            return res.status(401).json({
+                error: "Authentication required.",
+                details: "No OAuth token provided and background saver is not responding."
+            });
         }
 
         const response = await fetch(
@@ -67,13 +77,15 @@ export default async function handler(req, res) {
 
         if (!response.ok) {
             const errText = await response.text();
+            console.error(`[Vercel API] Direct Sheets API failed: ${response.status} ${errText}`);
             throw new Error(`Google Sheets API error: ${errText}`);
         }
 
+        console.log("[Vercel API] Direct Sheets API save successful.");
         return res.status(200).json({ success: true, method: 'direct-api' });
 
     } catch (globalError) {
-        console.error("[Vercel API] Save error:", globalError);
+        console.error("[Vercel API] CRITICAL SAVE FAILURE:", globalError);
         return res.status(500).json({
             error: "Sheets API proxy failed.",
             details: globalError.message
