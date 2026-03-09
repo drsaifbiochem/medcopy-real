@@ -38,7 +38,9 @@ import {
   FileSearch,
   GraduationCap,
   Upload,
-  Image as LucideImage
+  Image as LucideImage,
+  Layout,
+  Film
 } from 'lucide-react';
 import { InfoTooltip } from './components/InfoTooltip';
 
@@ -59,6 +61,9 @@ export default function App() {
     examSummarizerMode: false,
     imageMode: false,
     image: '',
+    posterMode: false,
+    reelMode: false,
+    advancedAnalysis: false,
     angle: ''
   });
 
@@ -166,6 +171,8 @@ export default function App() {
         updates.summarizerMode = false;
         updates.examSummarizerMode = false;
         updates.imageMode = false;
+        updates.posterMode = false;
+        updates.reelMode = false;
         if (prev.format === 'Multi-Format Exploder') updates.format = 'LinkedIn Post';
       }
       if (name === 'carouselMode' && value === true) {
@@ -173,17 +180,39 @@ export default function App() {
         updates.summarizerMode = false;
         updates.examSummarizerMode = false;
         updates.imageMode = false;
+        updates.posterMode = false;
+        updates.reelMode = false;
       }
       if (name === 'summarizerMode' && value === true) {
         updates.batchMode = false;
         updates.carouselMode = false; // Keep imageMode allowed? Maybe not for now to keep it simple.
         updates.imageMode = false;
+        updates.posterMode = false;
+        updates.reelMode = false;
       }
       if (name === 'imageMode' && value === true) {
         updates.batchMode = false;
         updates.carouselMode = false;
         updates.summarizerMode = false;
         updates.examSummarizerMode = false;
+        updates.posterMode = false;
+        updates.reelMode = false;
+      }
+      if (name === 'posterMode' && value === true) {
+        updates.batchMode = false;
+        updates.carouselMode = false;
+        updates.summarizerMode = false;
+        updates.examSummarizerMode = false;
+        updates.imageMode = false;
+        updates.reelMode = false;
+      }
+      if (name === 'reelMode' && value === true) {
+        updates.batchMode = false;
+        updates.carouselMode = false;
+        updates.summarizerMode = false;
+        updates.examSummarizerMode = false;
+        updates.imageMode = false;
+        updates.posterMode = false;
       }
 
       // If disabling summarizer mode, also disable exam mode
@@ -352,6 +381,9 @@ export default function App() {
       examSummarizerMode: false,
       imageMode: false,
       image: '',
+       posterMode: false,
+       reelMode: false,
+       advancedAnalysis: false,
       angle: ''
     });
     setGeneratedResult(null);
@@ -647,37 +679,92 @@ export default function App() {
                   <>
                     <div className="flex justify-between items-center mb-2">
                       <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                        {inputs.summarizerMode ? 'Summary Goal' : (inputs.batchMode ? 'Topic / Keywords' : 'Topic / Core Idea')}
+                        {inputs.summarizerMode
+                          ? 'Summary Goal / Focus (Optional)'
+                          : (inputs.batchMode
+                            ? 'Topic / Keywords'
+                            : (inputs.carouselMode
+                              ? 'Carousel Topic'
+                              : (inputs.posterMode
+                                ? 'Poster Topic'
+                                : (inputs.reelMode
+                                  ? 'Reel Topic / Hook'
+                                  : 'Topic / Core Idea'))))}
                       </label>
-                      {/* Batch Mode Slider */}
-                      {inputs.batchMode && (
-                        <div className="flex items-center gap-3 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-lg border border-purple-100 dark:border-purple-800">
-                          <span className="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase">Variations: {inputs.batchCount || 3}</span>
+                      <div className="flex items-center gap-3">
+                        {/* Batch Mode Slider */}
+                        {inputs.batchMode && (
+                          <div className="flex items-center gap-3 bg-purple-50 dark:bg-purple-900/20 px-3 py-1 rounded-lg border border-purple-100 dark:border-purple-800">
+                            <span className="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase">Variations: {inputs.batchCount || 3}</span>
+                            <input
+                              type="range"
+                              name="batchCount"
+                              min="1"
+                              max="5"
+                              value={inputs.batchCount || 3}
+                              onChange={handleInputChange}
+                              className="w-20 h-1.5 bg-purple-200 dark:bg-purple-800 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                            />
+                          </div>
+                        )}
+                        {/* Exam Mode Toggle if Summarizer */}
+                        {inputs.summarizerMode && (
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="examSummarizerMode" checked={inputs.examSummarizerMode} onChange={handleInputChange} className="styled-check" />
+                            <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">Exam / Subtitle Mode</span>
+                          </label>
+                        )}
+                        {/* Poster Mode Toggle */}
+                        <label className="flex items-center gap-1.5 cursor-pointer group">
                           <input
-                            type="range"
-                            name="batchCount"
-                            min="1"
-                            max="5"
-                            value={inputs.batchCount || 3}
+                            type="checkbox"
+                            name="posterMode"
+                            checked={inputs.posterMode || false}
                             onChange={handleInputChange}
-                            className="w-20 h-1.5 bg-purple-200 dark:bg-purple-800 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                            className="styled-check"
                           />
-                        </div>
-                      )}
-                      {/* Exam Mode Toggle if Summarizer */}
-                      {inputs.summarizerMode && (
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="checkbox" name="examSummarizerMode" checked={inputs.examSummarizerMode} onChange={handleInputChange} className="styled-check" />
-                          <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">Exam Mode</span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 ${inputs.posterMode ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 dark:group-hover:text-emerald-400'}`}>
+                            <Layout size={12} />
+                            Poster
+                          </span>
                         </label>
-                      )}
+                        {/* Reel Mode Toggle */}
+                        <label className="flex items-center gap-1.5 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            name="reelMode"
+                            checked={inputs.reelMode || false}
+                            onChange={handleInputChange}
+                            className="styled-check"
+                          />
+                          <span className={`text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 ${inputs.reelMode ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-rose-500 dark:group-hover:text-rose-400'}`}>
+                            <Film size={12} />
+                            Reel
+                          </span>
+                        </label>
+                      </div>
                     </div>
                     <textarea
                       name="topic"
                       value={inputs.topic}
                       onChange={handleInputChange}
-                      placeholder={inputs.summarizerMode ? "Describe goal..." : "What is this content about?"}
-                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-none shadow-inner mb-4 ${inputs.summarizerMode ? 'h-16' : 'h-24'}`}
+                      placeholder={
+                        inputs.summarizerMode
+                          ? "Describe the goal (e.g. 'Extract clinical pearls', 'Summarize for a 5-year-old'). Leave empty for general summary."
+                          : (inputs.posterMode
+                            ? "What is the poster about? (e.g. 'Hand hygiene for kids')."
+                            : (inputs.reelMode
+                              ? "What is the reel about? (e.g. 'Why you feel tired at 3pm') (Generates ~120-150s script)."
+                              : (inputs.batchMode
+                                ? "Enter keywords. We'll generate random angles."
+                                : "What is this content about?")))}
+                      className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-none shadow-inner mb-4 ${
+                        inputs.summarizerMode
+                          ? 'h-16'
+                          : (inputs.posterMode || inputs.reelMode || inputs.carouselMode)
+                            ? 'h-24'
+                            : 'h-24'
+                      }`}
                     />
 
                     <div className="flex justify-between items-center mb-2">
@@ -756,7 +843,7 @@ export default function App() {
                   <div className="flex justify-between items-center mb-2 gap-2">
                     <label className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider shrink-0 ${inputs.summarizerMode ? 'text-orange-600 dark:text-orange-400' : 'text-slate-600 dark:text-slate-400'}`}>
                       <BookOpen size={13} />
-                      {inputs.summarizerMode ? 'Source Text' : 'Context'}
+                      {inputs.summarizerMode ? 'Source Text to Summarize (Required)' : 'Context'}
                     </label>
                     <div className="flex gap-4 ml-auto">
                       <label className="flex items-center gap-1.5 cursor-pointer">
@@ -774,53 +861,124 @@ export default function App() {
                     name="context"
                     value={inputs.context}
                     onChange={handleInputChange}
-                    placeholder={inputs.summarizerMode ? "Paste text to summarize..." : "Paste relevant medical facts..."}
-                    className={`w-full px-4 py-3 bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all resize-none shadow-inner ${inputs.summarizerMode ? 'h-48' : 'h-32'}`} // Increased height for summarizer
+                    placeholder={
+                      inputs.examSummarizerMode
+                        ? "Paste timestamped transcripts or subtitles (e.g. '00:11:06 This is important...'). We will extract the high-yield topics."
+                        : (inputs.summarizerMode
+                          ? "Paste the full text, article, or notes you want to summarize here..."
+                          : "Paste relevant medical facts, study results, or guidelines. The AI will stick closely to this context.")
+                    }
+                    className={`w-full px-4 py-3 bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all resize-none shadow-inner ${
+                      inputs.summarizerMode ? 'h-48' : 'h-32'
+                    }`}
                   />
+                  {inputs.summarizerMode && (
+                    <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-1.5 font-medium flex items-center gap-1">
+                      <FileSearch size={10} />
+                      Summarizer Mode: Paste source text above, we will extract persona-driven insights across the full document.
+                    </p>
+                  )}
                 </div>
               </div>
 
 
               {/* Action Bar */}
-              <div className="mt-auto pt-4 flex gap-4 border-t border-slate-100 dark:border-slate-700/50">
-                <button
-                  onClick={handleClear}
-                  className="px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 hover:shadow-sm"
-                  title="Reset All"
-                >
-                  <RotateCcw size={18} />
-                </button>
+              <div className="mt-auto pt-4 flex flex-col gap-3 border-t border-slate-100 dark:border-slate-700/50">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="advancedAnalysis"
+                      checked={inputs.advancedAnalysis || false}
+                      onChange={handleInputChange}
+                      className="styled-check"
+                    />
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <ScanEye size={13} className="text-cyan-500" />
+                      Advance analysis (Gemini 3.1 Flash Lite for this run only)
+                    </span>
+                  </label>
+                </div>
 
-                <button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || (inputs.summarizerMode ? !inputs.context : (inputs.imageMode ? !inputs.image : (!inputs.persona || !inputs.topic)))}
-                  className={`flex-1 flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-bold shadow-lg hover:shadow-cyan-500/25 transition-all transform active:scale-[0.98] ${isGenerating || (inputs.summarizerMode ? !inputs.context : (inputs.imageMode ? !inputs.image : (!inputs.persona || !inputs.topic)))
-                    ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none'
-                    : inputs.imageMode
-                      ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500' // Vision Gradient
-                      : inputs.batchMode
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500' // Batch Gradient
-                        : inputs.carouselMode
-                          ? 'bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500' // Carousel Gradient
-                          : inputs.summarizerMode
-                            ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500' // Summarizer Gradient
-                            : 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500' // Default Gradient
-                    }`}
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span className="animate-pulse">Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      {inputs.imageMode ? <ScanEye size={20} /> : <Wand2 size={20} />}
-                      <span className="tracking-wide">
-                        {inputs.imageMode ? 'Analyze Image' : (inputs.summarizerMode ? 'Summarize' : 'Generate')}
-                      </span>
-                    </>
-                  )}
-                </button>
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleClear}
+                    className="px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 hover:shadow-sm"
+                    title="Reset All"
+                  >
+                    <RotateCcw size={18} />
+                  </button>
+
+                  <button
+                    onClick={handleGenerate}
+                    disabled={
+                      isGenerating ||
+                      (inputs.summarizerMode
+                        ? !inputs.context
+                        : (inputs.imageMode
+                          ? !inputs.image
+                          : (inputs.posterMode
+                            ? !inputs.topic
+                            : (inputs.reelMode
+                              ? !inputs.topic
+                              : (!inputs.persona || !inputs.topic))))
+                    }
+                    className={`flex-1 flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-bold shadow-lg hover:shadow-cyan-500/25 transition-all transform active:scale-[0.98] ${
+                      isGenerating ||
+                      (inputs.summarizerMode
+                        ? !inputs.context
+                        : (inputs.imageMode
+                          ? !inputs.image
+                          : (inputs.posterMode
+                            ? !inputs.topic
+                            : (inputs.reelMode
+                              ? !inputs.topic
+                              : (!inputs.persona || !inputs.topic)))))
+                        ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none'
+                        : inputs.imageMode
+                          ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500'
+                          : inputs.batchMode
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500'
+                            : inputs.carouselMode
+                              ? 'bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500'
+                              : inputs.summarizerMode
+                                ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500'
+                                : inputs.posterMode
+                                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500'
+                                  : inputs.reelMode
+                                    ? 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500'
+                                    : 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500'
+                      }`}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span className="animate-pulse">Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        {inputs.imageMode
+                          ? <ScanEye size={20} />
+                          : (inputs.posterMode
+                            ? <Layout size={20} />
+                            : (inputs.reelMode
+                              ? <Film size={20} />
+                              : <Wand2 size={20} />))}
+                        <span className="tracking-wide">
+                          {inputs.imageMode
+                            ? 'Analyze Image'
+                            : (inputs.summarizerMode
+                              ? 'Summarize'
+                              : (inputs.posterMode
+                                ? 'Generate Poster'
+                                : (inputs.reelMode
+                                  ? 'Generate Reel Script'
+                                  : 'Generate')))}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {error && (
@@ -955,6 +1113,126 @@ export default function App() {
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        ) : generatedResult.posterOutput ? (
+                          <div className="space-y-6">
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-2xl p-8 relative overflow-hidden">
+                              <div className="absolute top-0 right-0 p-4 text-emerald-200 dark:text-emerald-800/40">
+                                <Layout size={96} />
+                              </div>
+                              <div className="relative z-10">
+                                <div className="mb-8">
+                                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-2 block">Poster Headline</span>
+                                  <h2 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                                    {ensureString(generatedResult.posterOutput.headline)}
+                                  </h2>
+                                  <p className="text-lg text-emerald-800 dark:text-emerald-300 mt-2 font-medium">
+                                    {ensureString(generatedResult.posterOutput.subheadline)}
+                                  </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 block">Key Information</span>
+                                    <ul className="space-y-3">
+                                      {generatedResult.posterOutput.keyPoints?.map((point, i) => (
+                                        <li key={i} className="flex gap-3 text-slate-700 dark:text-slate-200 text-sm leading-relaxed">
+                                          <div className="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-300 flex items-center justify-center text-[10px] font-bold">
+                                            {i + 1}
+                                          </div>
+                                          {ensureString(point)}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-lg p-4 border border-emerald-100 dark:border-emerald-800/50">
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2 block">Call to Action</span>
+                                    <p className="text-slate-800 dark:text-slate-100 font-bold text-lg">
+                                      {ensureString(generatedResult.posterOutput.callToAction)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="border-t border-emerald-100 dark:border-emerald-800 pt-6">
+                                  <div className="flex flex-col md:flex-row gap-6">
+                                    <div className="flex-1">
+                                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Visual Strategy</span>
+                                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                                        {ensureString(generatedResult.posterOutput.visualSuggestions)}
+                                      </p>
+                                    </div>
+                                    <div className="md:w-1/3">
+                                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Footer Details</span>
+                                      <p className="text-[10px] text-slate-500 dark:text-slate-500 leading-tight">
+                                        {ensureString(generatedResult.posterOutput.footerInfo)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : generatedResult.reelOutput ? (
+                          <div className="space-y-6">
+                            <div className="bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-2xl p-6 relative overflow-hidden">
+                              <div className="absolute top-0 right-0 p-4 text-rose-200 dark:text-rose-800/40">
+                                <Film size={96} />
+                              </div>
+                              <div className="relative z-10">
+                                <div className="mb-6">
+                                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-[0.2em] mb-2 block">The Hook (0–5s)</span>
+                                  <h2 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">
+                                    {ensureString(generatedResult.reelOutput.hook)}
+                                  </h2>
+                                </div>
+
+                                <div className="space-y-4 mb-8">
+                                  {generatedResult.reelOutput.script?.map((segment, i) => (
+                                    <div key={i} className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-lg p-4 border border-rose-100 dark:border-rose-800/50 flex gap-4">
+                                      <div className="shrink-0 w-16 text-xs font-mono font-bold text-rose-500 dark:text-rose-400 pt-1">
+                                        {ensureString(segment.time)}
+                                      </div>
+                                      <div className="flex-1 space-y-2">
+                                        <div className="flex gap-2">
+                                          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest w-12 shrink-0">Visual</span>
+                                          <p className="text-sm text-slate-700 dark:text-slate-300 italic">
+                                            {ensureString(segment.visual)}
+                                          </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest w-12 shrink-0">Audio</span>
+                                          <p className="text-sm text-slate-900 dark:text-white font-medium">
+                                            {ensureString(segment.audio)}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-rose-100 dark:border-rose-800">
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Caption</span>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                                      {ensureString(generatedResult.reelOutput.caption)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Hashtags</span>
+                                    <div className="flex flex-wrap gap-2">
+                                      {generatedResult.reelOutput.hashtags?.map((tag, i) => (
+                                        <span
+                                          key={i}
+                                          className="text-xs text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-2 py-1 rounded-md font-medium"
+                                        >
+                                          #{ensureString(tag).replace(/^#/, '')}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         ) : generatedResult.multiFormatOutput ? (
                           null // Content already rendered inside renderMultiFormatTabs() above

@@ -163,8 +163,11 @@ app.post('/api/generate', async (req, res) => {
 
         try {
             const genAI = new GoogleGenerativeAI(currentKey.key);
+            const modelId = inputs.advancedAnalysis
+                ? 'gemini-3.1-flash-lite-preview'
+                : 'gemma-3-27b-it';
             const model = genAI.getGenerativeModel({
-                model: 'gemma-3-27b-it'
+                model: modelId
             });
 
             const PREPEND_PROMPT = `${SYSTEM_INSTRUCTION}\n${ANTI_AI_STYLE}\n\n`;
@@ -207,6 +210,80 @@ ${inputs.audience || "Layperson"}
 
             let result;
 
+            // Summarizer Mode (including Exam/Subtitle variant)
+            if (inputs.summarizerMode) {
+                const isExamMode = inputs.examSummarizerMode;
+
+                const summaryPrompt = isExamMode
+                    ? `${PREPEND_PROMPT}
+CLINICAL BIOCHEMISTRY / EXAM STRATEGIST MODE (NEET-PG / USMLE)
+
+You are an expert Clinical Biochemistry educator and medical exam strategist. You convert long, timestamped lecture subtitles into high-yield, exam-ready summaries.
+
+CRITICAL INSTRUCTION FOR LONG DOCUMENTS:
+- Read the ENTIRE source text. Do not skip sections.
+- Cover the full breadth of the lecture from beginning to end.
+
+SOURCE CAPTIONS:
+${inputs.context || "No source text provided."}
+
+SUMMARY GOAL:
+${currentTopic || "Extract every exam-relevant biochemical concept with timestamps."}
+
+OUTPUT REQUIREMENTS:
+1. TOPIC-WISE CLASS SUMMARY (with timestamps in square brackets, e.g. [14:10-22:45]).
+2. HIGH-YIELD LEARNING NOTES (pathways, enzymes, cofactors, regulation).
+3. CLINICAL CORRELATIONS (diseases, deficiencies, lab findings).
+4. EXAM PEARLS / HIGH-YIELD POINTS (one-liners, traps, comparisons).
+
+FORMATTING RULES:
+- NO markdown bold/italics.
+- Use CAPITALIZED HEADINGS.
+- Use simple bullets and numbered lists.
+
+PERSONA:
+${inputs.persona}
+`
+                    : `${PREPEND_PROMPT}
+DEEP DIVE ANALYZER & INSIGHT SYNTHESIZER
+
+You are an expert analyst acting strictly as the Persona defined below.
+Transform the SOURCE TEXT into a high-value, structured summary.
+
+TARGET AUDIENCE: ${inputs.audience || "Layperson (Patient/Public)"}
+SUMMARY GOAL: "${currentTopic || "Identify the most critical medical concepts, explain them clearly, and structure them logically."}"
+
+CRITICAL INSTRUCTIONS FOR LONG DOCUMENTS:
+1. Read the ENTIRE source text. Do not stop halfway.
+2. Synthesize, do not transcribe chronologically.
+3. Group related concepts into thematic sections.
+4. Filter noise, keep medical signal.
+
+REQUIRED STRUCTURE:
+- CORE THESIS (1–2 sentence hook).
+- KEY MEDICAL INSIGHTS (3–10 deep, distinct sections or bullets).
+- CLINICAL / PRACTICAL IMPLICATION for the audience.
+
+SOURCE TEXT:
+${inputs.context || "No source text provided."}
+
+PERSONA:
+${inputs.persona}
+`;
+
+                result = await model.generateContent(summaryPrompt);
+                const draft = result.response.text();
+
+                return res.json({
+                    content: draft,
+                    driftScore: 95,
+                    driftReasoning: isExamMode
+                        ? "Exam/Subtitle summarizer mode active. Content structured for NEET-PG/USMLE style retention."
+                        : "Summarizer mode active. Content derived directly from source text.",
+                    distilledInsight
+                });
+            }
+
             if (inputs.imageMode && inputs.image) {
                 const base64Data = inputs.image.split(',')[1];
                 const prompt = buildStructuredPrompt("Perform a VISION ANALYSIS based on the provided image and topic.");
@@ -232,6 +309,118 @@ ${inputs.audience || "Layperson"}
                     }));
                 }
                 return res.json({ carouselOutput, driftScore: 100, distilledInsight });
+            }
+
+            // Poster Maker Mode
+            if (inputs.posterMode) {
+                const prompt = `${PREPEND_PROMPT}
+MEDICAL POSTER DESIGNER & CONTENT STRATEGIST
+
+Using the Persona below, generate a structured template for a high-impact medical poster or educational infographic.
+
+INPUTS:
+PERSONA:
+${inputs.persona}
+
+TOPIC:
+${currentTopic}
+
+CONTEXT:
+${inputs.context || "No additional context."}
+
+AUDIENCE:
+${inputs.audience || "Layperson (Patient/Public)"}
+
+REQUIRED FIELDS:
+- headline
+- subheadline
+- keyPoints (3–5 bullets)
+- callToAction
+- visualSuggestions
+- footerInfo
+
+Return STRICT JSON with these fields only.`;
+
+                result = await model.generateContent(prompt);
+                const text = result.response.text();
+                const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
+                let posterOutput = JSON.parse(jsonMatch[1].trim());
+
+                if (posterOutput && typeof posterOutput === 'object') {
+                    posterOutput.headline = ensureString(posterOutput.headline);
+                    posterOutput.subheadline = ensureString(posterOutput.subheadline);
+                    posterOutput.callToAction = ensureString(posterOutput.callToAction);
+                    posterOutput.visualSuggestions = ensureString(posterOutput.visualSuggestions);
+                    posterOutput.footerInfo = ensureString(posterOutput.footerInfo);
+                    if (Array.isArray(posterOutput.keyPoints)) {
+                        posterOutput.keyPoints = posterOutput.keyPoints.map(k => ensureString(k));
+                    }
+                }
+
+                return res.json({
+                    posterOutput,
+                    content: "Poster Template Generated.",
+                    driftScore: 100,
+                    driftReasoning: "Poster mode active. Structured template generation.",
+                    distilledInsight
+                });
+            }
+
+            // Reel / Short Script Mode
+            if (inputs.reelMode) {
+                const prompt = `${PREPEND_PROMPT}
+REEL / SHORT SCRIPT GENERATOR (120-150 SECONDS)
+
+Using the Persona below, generate a high-retention script for a vertical video (Reel/TikTok/Short).
+
+STRUCTURE:
+1. hook (0–5s)
+2. script: array of segments with time, visual, audio
+3. caption
+4. hashtags (3–5 items)
+
+INPUTS:
+PERSONA:
+${inputs.persona}
+
+TOPIC:
+${currentTopic}
+
+CONTEXT:
+${inputs.context || "No additional context."}
+
+AUDIENCE:
+${inputs.audience || "Layperson (Patient/Public)"}
+
+Return STRICT JSON with fields: hook, script, caption, hashtags.`;
+
+                result = await model.generateContent(prompt);
+                const text = result.response.text();
+                const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
+                let reelOutput = JSON.parse(jsonMatch[1].trim());
+
+                if (reelOutput && typeof reelOutput === 'object') {
+                    reelOutput.hook = ensureString(reelOutput.hook);
+                    reelOutput.caption = ensureString(reelOutput.caption);
+                    if (Array.isArray(reelOutput.hashtags)) {
+                        reelOutput.hashtags = reelOutput.hashtags.map(h => ensureString(h));
+                    }
+                    if (Array.isArray(reelOutput.script)) {
+                        reelOutput.script = reelOutput.script.map(seg => ({
+                            time: ensureString(seg.time),
+                            visual: ensureString(seg.visual),
+                            audio: ensureString(seg.audio)
+                        }));
+                    }
+                }
+
+                return res.json({
+                    reelOutput,
+                    content: "Reel Script Generated.",
+                    driftScore: 100,
+                    driftReasoning: "Reel mode active. Structured script generation.",
+                    distilledInsight
+                });
             }
 
             if (inputs.batchMode) {

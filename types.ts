@@ -14,6 +14,9 @@ export interface GenerationInputs {
   examSummarizerMode: boolean;
   image?: string;
   imageMode?: boolean;
+  posterMode?: boolean;
+  reelMode?: boolean;
+  advancedAnalysis?: boolean;
   angle?: string;
 }
 
@@ -43,6 +46,26 @@ export interface CarouselSlide {
   visualDescription: string;
 }
 
+export interface PosterContent {
+  headline: string;
+  subheadline: string;
+  keyPoints: string[];
+  callToAction: string;
+  visualSuggestions: string;
+  footerInfo: string;
+}
+
+export interface ReelScript {
+  hook: string;
+  script: Array<{
+    time: string;
+    visual: string;
+    audio: string;
+  }>;
+  caption: string;
+  hashtags: string[];
+}
+
 export interface GenerationResult {
   content: string;
   driftScore?: number;
@@ -51,4 +74,6 @@ export interface GenerationResult {
   multiFormatOutput?: MultiFormatContent;
   batchOutput?: string[];
   carouselOutput?: CarouselSlide[];
+  posterOutput?: PosterContent;
+  reelOutput?: ReelScript;
 }
