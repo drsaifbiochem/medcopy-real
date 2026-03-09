@@ -396,6 +396,14 @@ export default function App() {
     addLog("All inputs and results cleared.");
   };
 
+  const isGenerateDisabled = () => {
+    if (isGenerating) return true;
+    if (inputs.summarizerMode) return !inputs.context;
+    if (inputs.imageMode) return !inputs.image;
+    if (inputs.posterMode || inputs.reelMode) return !inputs.topic;
+    return !inputs.persona || !inputs.topic;
+  };
+
   const handleSheetConfigSave = () => {
     localStorage.setItem('medcopy_google_client_id', sheetConfig.clientId);
     localStorage.setItem('medcopy_google_sheet_id', sheetConfig.spreadsheetId);
@@ -911,29 +919,9 @@ export default function App() {
 
                   <button
                     onClick={handleGenerate}
-                    disabled={
-                      isGenerating ||
-                      (inputs.summarizerMode
-                        ? !inputs.context
-                        : (inputs.imageMode
-                          ? !inputs.image
-                          : (inputs.posterMode
-                            ? !inputs.topic
-                            : (inputs.reelMode
-                              ? !inputs.topic
-                              : (!inputs.persona || !inputs.topic))))
-                    }
+                    disabled={isGenerateDisabled()}
                     className={`flex-1 flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-bold shadow-lg hover:shadow-cyan-500/25 transition-all transform active:scale-[0.98] ${
-                      isGenerating ||
-                      (inputs.summarizerMode
-                        ? !inputs.context
-                        : (inputs.imageMode
-                          ? !inputs.image
-                          : (inputs.posterMode
-                            ? !inputs.topic
-                            : (inputs.reelMode
-                              ? !inputs.topic
-                              : (!inputs.persona || !inputs.topic)))))
+                      isGenerateDisabled()
                         ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none'
                         : inputs.imageMode
                           ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500'
