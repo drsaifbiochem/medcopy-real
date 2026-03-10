@@ -220,6 +220,7 @@ ${inputs.audience || "Layperson"}
                     return res.status(200).json({ content: result.response.text(), driftScore: 100, distilledInsight });
                 }
 
+                // Carousel mode (Instagram carousel JSON)
                 if (inputs.carouselMode) {
                     const prompt = buildStructuredPrompt("GENERATE INSTAGRAM CAROUSEL JSON (5-10 slides). Use the ANGLE provided for the hook of Slide 1. SCHEMA: [{slideNumber, title, content, visualDescription}]");
                     result = await model.generateContent(prompt);
@@ -240,6 +241,7 @@ ${inputs.audience || "Layperson"}
                     return res.status(200).json({ carouselOutput, driftScore: 100, distilledInsight });
                 }
 
+                // Batch mode (multiple text variations as JSON array)
                 if (inputs.batchMode) {
                     const prompt = buildStructuredPrompt(`GENERATE ${inputs.batchCount} UNIQUE VARIATIONS AS JSON ARRAY. 
 IMPORTANT: Each variation MUST strictly follow the ANGLE "${currentAngle}" but be phrased uniquely. No two variations should start or end with the same sentence.`);
@@ -256,6 +258,111 @@ IMPORTANT: Each variation MUST strictly follow the ANGLE "${currentAngle}" but b
                     return res.status(200).json({ batchOutput, driftScore: 100, distilledInsight });
                 }
 
+                // Poster mode (structured poster template)
+                if (inputs.posterMode) {
+                    const prompt = buildStructuredPrompt(`GENERATE A STRUCTURED POSTER TEMPLATE AS STRICT JSON.
+SCHEMA:
+{
+  "headline": string,
+  "subheadline": string,
+  "keyPoints": string[],
+  "callToAction": string,
+  "visualSuggestions": string,
+  "footerInfo": string
+}
+
+REQUIREMENTS:
+- Headline must be punchy and authoritative.
+- Subheadline should add urgency or clarity.
+- keyPoints must be 3-5 concise, high-yield bullets (no nested objects).
+- callToAction must be a single clear instruction.
+- visualSuggestions should describe layout, colors, iconography.
+- footerInfo should include disclaimers or contact placeholders.`);
+
+                    result = await model.generateContent(prompt);
+                    const text = result.response.text();
+                    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
+                    let posterOutput = JSON.parse(jsonMatch[1].trim());
+
+                    // Hardening – ensure all fields are strings/arrays of strings
+                    if (posterOutput && typeof posterOutput === 'object') {
+                        posterOutput.headline = ensureString(posterOutput.headline);
+                        posterOutput.subheadline = ensureString(posterOutput.subheadline);
+                        if (Array.isArray(posterOutput.keyPoints)) {
+                            posterOutput.keyPoints = posterOutput.keyPoints.map(ensureString);
+                        } else {
+                            posterOutput.keyPoints = [ensureString(posterOutput.keyPoints)];
+                        }
+                        posterOutput.callToAction = ensureString(posterOutput.callToAction);
+                        posterOutput.visualSuggestions = ensureString(posterOutput.visualSuggestions);
+                        posterOutput.footerInfo = ensureString(posterOutput.footerInfo);
+                    }
+
+                    return res.status(200).json({
+                        posterOutput,
+                        driftScore: 100,
+                        distilledInsight: ensureString(distilledInsight)
+                    });
+                }
+
+                // Reel / short script mode (structured script JSON)
+                if (inputs.reelMode) {
+                    const prompt = buildStructuredPrompt(`GENERATE A 120-150 SECOND REEL/SHORT SCRIPT AS STRICT JSON.
+SCHEMA:
+{
+  "hook": string,
+  "script": [
+    {
+      "time": string,
+      "visual": string,
+      "audio": string
+    }
+  ],
+  "caption": string,
+  "hashtags": string[]
+}
+
+REQUIREMENTS:
+- hook should be a scroll-stopping opening line.
+- script should be broken into 8-20 segments with approximate timestamps.
+- visual describes exactly what is on screen.
+- audio is the spoken line, short and punchy.
+- caption should summarise the key idea for the feed.
+- hashtags should be 3-8 niche-relevant tags.`);
+
+                    result = await model.generateContent(prompt);
+                    const text = result.response.text();
+                    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || [null, text];
+                    let reelOutput = JSON.parse(jsonMatch[1].trim());
+
+                    // Hardening
+                    if (reelOutput && typeof reelOutput === 'object') {
+                        reelOutput.hook = ensureString(reelOutput.hook);
+                        if (Array.isArray(reelOutput.script)) {
+                            reelOutput.script = reelOutput.script.map(segment => ({
+                                time: ensureString(segment.time),
+                                visual: ensureString(segment.visual),
+                                audio: ensureString(segment.audio)
+                            }));
+                        } else {
+                            reelOutput.script = [];
+                        }
+                        reelOutput.caption = ensureString(reelOutput.caption);
+                        if (Array.isArray(reelOutput.hashtags)) {
+                            reelOutput.hashtags = reelOutput.hashtags.map(ensureString);
+                        } else {
+                            reelOutput.hashtags = [];
+                        }
+                    }
+
+                    return res.status(200).json({
+                        reelOutput,
+                        driftScore: 100,
+                        distilledInsight: ensureString(distilledInsight)
+                    });
+                }
+
+                // Multi-Format exploder (multiple platforms JSON)
                 if (inputs.format === 'Multi-Format Exploder') {
                     const prompt = buildStructuredPrompt("GENERATE MULTI-PLATFORM CONTENT JSON. PLATFORMS: linkedin, instagram, twitter, email. Ensure the ANGLE is woven into all platforms differently.");
                     result = await model.generateContent(prompt);
